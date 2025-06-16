@@ -18,11 +18,12 @@ type Data struct {
 
 func getTestData(t *testing.T) []Data {
 	t.Helper()
+	now := time.Now().UTC().Truncate(time.Second)
 	return []Data{
 		{
 			Model: gorm.Model{
-				CreatedAt: time.Now().UTC().Truncate(time.Second),
-				UpdatedAt: time.Now().UTC().Truncate(time.Second),
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			UniqueID: "unique-id-1",
 			Key:      "key1",
@@ -30,8 +31,8 @@ func getTestData(t *testing.T) []Data {
 		},
 		{
 			Model: gorm.Model{
-				CreatedAt: time.Now().UTC().Truncate(time.Second),
-				UpdatedAt: time.Now().UTC().Truncate(time.Second),
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			UniqueID: "unique-id-2",
 			Key:      "key2",
@@ -39,8 +40,8 @@ func getTestData(t *testing.T) []Data {
 		},
 		{
 			Model: gorm.Model{
-				CreatedAt: time.Now().UTC().Truncate(time.Second),
-				UpdatedAt: time.Now().UTC().Truncate(time.Second),
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			UniqueID: "unique-id-3",
 			Key:      "key3",
