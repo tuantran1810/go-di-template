@@ -17,6 +17,26 @@ func NewUserStore(repository *Repository) *UserStore {
 	}
 }
 
+func (s *UserStore) Start(ctx context.Context) error {
+	log.Infof("starting user store")
+
+	s.repository.mutex.Lock()
+	err := s.repository.db.AutoMigrate(&models.User{})
+	s.repository.mutex.Unlock()
+	if err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	return s.Ping(timeoutCtx)
+}
+
+func (s *UserStore) Stop(_ context.Context) error {
+	return nil
+}
+
 func (s *UserStore) FindByUsername(
 	ctx context.Context,
 	tx models.Transaction,

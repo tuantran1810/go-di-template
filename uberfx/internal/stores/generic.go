@@ -17,6 +17,22 @@ func NewGenericStore[T any](repository *Repository) *GenericStore[T] {
 	return &GenericStore[T]{repository: repository}
 }
 
+func (s *GenericStore[T]) Ping(ctx context.Context) error {
+	s.repository.mutex.RLock()
+	defer s.repository.mutex.RUnlock()
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	var entity T
+	dbtx := s.repository.getTransaction(nil).WithContext(timeoutCtx)
+	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
+		return generateError("failed to ping database", err)
+	}
+
+	return nil
+}
+
 func (s *GenericStore[T]) Create(
 	ctx context.Context,
 	tx models.Transaction,

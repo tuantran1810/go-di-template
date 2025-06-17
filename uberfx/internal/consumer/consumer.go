@@ -5,8 +5,11 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit"
+	"github.com/tuantran1810/go-di-template/libs/logger"
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
 )
+
+var log = logger.MustNamedLogger("consumer")
 
 type Processor interface {
 	Process(ctx context.Context, msg *models.Message) error
@@ -34,12 +37,13 @@ func (c *FakeConsumer) generateContentWorker(ctx context.Context) {
 	for {
 		select {
 		case <-timer.C:
+			log.Infof("message generated")
 			msg := &models.Message{
 				Key:   gofakeit.UUID(),
 				Value: gofakeit.Sentence(20),
 			}
 			if err := c.processor.Process(ctx, msg); err != nil {
-				return
+				log.Errorf("failed to process message: %v", err)
 			}
 		case <-ctx.Done():
 			return

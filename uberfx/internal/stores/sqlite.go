@@ -9,12 +9,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tuantran1810/go-di-template/libs/logger"
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 const defaultTimeout = 20 * time.Second
+
+var log = logger.MustNamedLogger("stores")
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -133,6 +136,7 @@ func MustNewRepository(cfg RepositoryConfig) *Repository {
 }
 
 func (r *Repository) Start(_ context.Context) error {
+	log.Infof("starting sqlite repository")
 	return nil
 }
 

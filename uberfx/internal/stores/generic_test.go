@@ -73,6 +73,42 @@ func setup(t *testing.T) (*Repository, error) {
 	return r, nil
 }
 
+func TestGenericStore_PingOK(t *testing.T) {
+	t.Parallel()
+	repository, err := setup(t)
+	if err != nil {
+		t.Errorf("failed to setup repository: %v", err)
+		return
+	}
+	defer repository.Stop(context.Background())
+
+	store := NewGenericStore[Data](repository)
+
+	t.Run("Ping", func(t *testing.T) {
+		if err := store.Ping(context.Background()); err != nil {
+			t.Errorf("failed to ping database: %v", err)
+		}
+	})
+}
+
+func TestGenericStore_PingFailed(t *testing.T) {
+	t.Parallel()
+	repository, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
+	if err != nil {
+		t.Errorf("failed to setup repository: %v", err)
+		return
+	}
+	defer repository.Stop(context.Background())
+
+	store := NewGenericStore[Data](repository)
+
+	t.Run("Ping", func(t *testing.T) {
+		if err := store.Ping(context.Background()); err == nil {
+			t.Error("expected error")
+		}
+	})
+}
+
 func TestGenericStore_Create(t *testing.T) {
 	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
