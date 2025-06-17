@@ -61,6 +61,7 @@ func setupUserTest(t *testing.T) (*Repository, error) {
 }
 
 func TestUserStore_FindByUsername(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setupUserTest(t)
 	if err != nil {

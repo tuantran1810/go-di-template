@@ -7,6 +7,8 @@ import (
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
 )
 
+const DefaultLimit = 100
+
 type GenericStore[T any] struct {
 	repository *Repository
 }
@@ -100,6 +102,80 @@ func (s *GenericStore[T]) GetMany(
 	var entities []*T
 	if err := dbtx.Find(&entities, ids).Error; err != nil {
 		return nil, generateError("failed to get entities", err)
+	}
+
+	return entities, nil
+}
+
+func (s *GenericStore[T]) GetByCriterias(
+	ctx context.Context,
+	tx models.Transaction,
+	fields []string,
+	criterias map[string]any,
+	orderBys []string,
+) (*T, error) {
+	s.repository.mutex.RLock()
+	defer s.repository.mutex.RUnlock()
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	var entity T
+	dbtx := s.repository.
+		getTransaction(tx).
+		WithContext(timeoutCtx)
+	if len(fields) > 0 {
+		dbtx = dbtx.Select(fields)
+	}
+	for k, v := range criterias {
+		dbtx = dbtx.Where(fmt.Sprintf("%s = ?", k), v)
+	}
+	for _, order := range orderBys {
+		dbtx = dbtx.Order(order)
+	}
+
+	if err := dbtx.First(&entity).Error; err != nil {
+		return nil, generateError("failed to get entity", err)
+	}
+
+	return &entity, nil
+}
+
+func (s *GenericStore[T]) GetManyByCriterias(
+	ctx context.Context,
+	tx models.Transaction,
+	fields []string,
+	criterias map[string]any,
+	orderBys []string,
+	offset int,
+	limit int,
+) ([]*T, error) {
+	s.repository.mutex.RLock()
+	defer s.repository.mutex.RUnlock()
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+
+	for k, v := range criterias {
+		dbtx = dbtx.Where(fmt.Sprintf("%s = ?", k), v)
+	}
+	for _, order := range orderBys {
+		dbtx = dbtx.Order(order)
+	}
+
+	if limit <= 0 {
+		limit = DefaultLimit
+	}
+	var entities []*T
+	if err := dbtx.
+		Offset(offset).
+		Limit(limit).
+		Select(fields).
+		Find(&entities).
+		Error; err != nil {
+		return nil, generateError("failed to get entity", err)
 	}
 
 	return entities, nil

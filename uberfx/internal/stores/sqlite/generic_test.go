@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -73,6 +74,7 @@ func setup(t *testing.T) (*Repository, error) {
 }
 
 func TestGenericStore_Create(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setup(t)
 	if err != nil {
@@ -171,6 +173,7 @@ func TestGenericStore_Create(t *testing.T) {
 }
 
 func TestGenericStore_CreateMany(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setup(t)
 	if err != nil {
@@ -280,6 +283,7 @@ func TestGenericStore_CreateMany(t *testing.T) {
 }
 
 func TestGenericStore_Get(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setup(t)
 	if err != nil {
@@ -349,6 +353,7 @@ func TestGenericStore_Get(t *testing.T) {
 }
 
 func TestGenericStore_GetMany(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setup(t)
 	if err != nil {
@@ -458,7 +463,242 @@ func TestGenericStore_GetMany(t *testing.T) {
 	}
 }
 
+func TestGenericStore_GetByCriterias(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC().Truncate(time.Second)
+	repository, err := setup(t)
+	if err != nil {
+		t.Errorf("failed to setup repository: %v", err)
+		return
+	}
+	defer repository.Stop(context.Background())
+
+	store := NewGenericStore[Data](repository)
+	createTestData(t, store)
+
+	tests := []struct {
+		name      string
+		criterias map[string]any
+		fields    []string
+		orderBys  []string
+		want      *Data
+		wantErr   bool
+	}{
+		{
+			name: "with criterias",
+			criterias: map[string]any{
+				"unique_id": "unique-id-1",
+			},
+			orderBys: []string{"id"},
+			want: &Data{
+				Model: gorm.Model{
+					ID:        1,
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				UniqueID: "unique-id-1",
+				Key:      "key1",
+				Value:    "value1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "with criterias, limited fields",
+			criterias: map[string]any{
+				"unique_id": "unique-id-1",
+			},
+			fields:   []string{"unique_id", "key"},
+			orderBys: []string{"id"},
+			want: &Data{
+				UniqueID: "unique-id-1",
+				Key:      "key1",
+			},
+			wantErr: false,
+		},
+		{
+			name:     "without criterias, limited fields, order by",
+			fields:   []string{"unique_id", "key"},
+			orderBys: []string{"id DESC"},
+			want: &Data{
+				UniqueID: "unique-id-3",
+				Key:      "key3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "not found",
+			criterias: map[string]any{
+				"unique_id": "unique-id-100",
+			},
+			fields:   []string{"unique_id", "key"},
+			orderBys: []string{"id"},
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name: "no criterias",
+			fields: []string{
+				"unique_id",
+				"key",
+			},
+			orderBys: []string{
+				"id",
+			},
+			want: &Data{
+				UniqueID: "unique-id-1",
+				Key:      "key1",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.GetByCriterias(context.Background(), nil, tt.fields, tt.criterias, tt.orderBys)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("store.GetByCriterias() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("store.GetByCriterias() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenericStore_GetManyByCriterias(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC().Truncate(time.Second)
+	repository, err := setup(t)
+	if err != nil {
+		t.Errorf("failed to setup repository: %v", err)
+		return
+	}
+	defer repository.Stop(context.Background())
+
+	store := NewGenericStore[Data](repository)
+	createTestData(t, store)
+
+	if _, err := store.Create(context.Background(), nil, &Data{
+		Model: gorm.Model{
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		UniqueID: "unique-id-4",
+		Key:      "key1",
+		Value:    "value2",
+	}); err != nil {
+		t.Errorf("failed to create data: %v", err)
+		return
+	}
+
+	tests := []struct {
+		name      string
+		criterias map[string]any
+		fields    []string
+		orderBys  []string
+		offset    int
+		limit     int
+		want      []*Data
+		wantErr   bool
+	}{
+		{
+			name: "key 1",
+			criterias: map[string]any{
+				"key": "key1",
+			},
+			fields: []string{"unique_id", "key"},
+			orderBys: []string{
+				"id DESC",
+			},
+			offset: 0,
+			limit:  10,
+			want: []*Data{
+				{
+					UniqueID: "unique-id-4",
+					Key:      "key1",
+				},
+				{
+					UniqueID: "unique-id-1",
+					Key:      "key1",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "key 1, offset 1",
+			criterias: map[string]any{
+				"key": "key1",
+			},
+			fields: []string{"unique_id", "key"},
+			orderBys: []string{
+				"id DESC",
+			},
+			offset: 1,
+			limit:  10,
+			want: []*Data{
+				{
+					UniqueID: "unique-id-1",
+					Key:      "key1",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "key 1, limit 1",
+			criterias: map[string]any{
+				"key": "key1",
+			},
+			fields: []string{"unique_id", "key"},
+			orderBys: []string{
+				"id DESC",
+			},
+			offset: 0,
+			limit:  1,
+			want: []*Data{
+				{
+					UniqueID: "unique-id-4",
+					Key:      "key1",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "key 1, offset 2",
+			criterias: map[string]any{
+				"key": "key1",
+			},
+			fields: []string{"unique_id", "key"},
+			orderBys: []string{
+				"id DESC",
+			},
+			offset:  2,
+			limit:   10,
+			want:    []*Data{},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.GetManyByCriterias(
+				context.Background(), nil,
+				tt.fields, tt.criterias, tt.orderBys,
+				tt.offset, tt.limit,
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("store.GetManyByCriterias() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				jgot, _ := json.Marshal(got)
+				jwant, _ := json.Marshal(tt.want)
+				t.Errorf("store.GetManyByCriterias() = %s, want %s", jgot, jwant)
+			}
+		})
+	}
+}
+
 func TestGenericStore_Update(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC().Truncate(time.Second)
 	repository, err := setup(t)
 	if err != nil {
@@ -516,6 +756,7 @@ func TestGenericStore_Update(t *testing.T) {
 }
 
 func TestGenericStore_Delete(t *testing.T) {
+	t.Parallel()
 	repository, err := setup(t)
 	if err != nil {
 		t.Errorf("failed to setup repository: %v", err)
@@ -582,6 +823,7 @@ func TestGenericStore_Delete(t *testing.T) {
 }
 
 func TestGenericStore_DeleteMany(t *testing.T) {
+	t.Parallel()
 	repository, err := setup(t)
 	if err != nil {
 		t.Errorf("failed to setup repository: %v", err)
