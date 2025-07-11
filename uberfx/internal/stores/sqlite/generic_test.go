@@ -3,10 +3,12 @@ package stores
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 )
 
@@ -15,6 +17,30 @@ type Data struct {
 	UniqueID string `gorm:"uniqueIndex"`
 	Key      string
 	Value    string
+}
+
+func setup(t *testing.T) (*GenericStore[Data], error) {
+	t.Helper()
+	r, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.db.AutoMigrate(&Data{}); err != nil {
+		return nil, err
+	}
+
+	store := NewGenericStore[Data](r)
+	return store, nil
+}
+
+func cleanup(t *testing.T, store *GenericStore[Data]) {
+	t.Helper()
+
+	if err := store.repository.db.Exec("DROP TABLE IF EXISTS `test`.`data`").Error; err != nil {
+		t.Logf("failed to cleanup data: %v\n", err)
+		return
+	}
 }
 
 func getTestData(t *testing.T) []Data {
@@ -51,75 +77,74 @@ func getTestData(t *testing.T) []Data {
 	}
 }
 
-func createTestData(t *testing.T, store *GenericStore[Data]) {
+func createTestData(t *testing.T, store *GenericStore[Data]) ([]Data, error) {
 	t.Helper()
-
-	if _, err := store.CreateMany(context.Background(), nil, getTestData(t)); err != nil {
-		t.Errorf("failed to create data: %v", err)
-		return
-	}
+	testData := getTestData(t)
+	_, err := store.CreateMany(context.Background(), nil, testData)
+	return testData, err
 }
 
-func setup(t *testing.T) (*Repository, error) {
-	t.Helper()
-	r, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := r.db.AutoMigrate(&Data{}); err != nil {
-		return nil, err
-	}
-	return r, nil
+type GenericDataTestSuite struct {
+	suite.Suite
+	initData []Data
+	store    *GenericStore[Data]
 }
 
-func TestGenericStore_PingOK(t *testing.T) {
-	t.Parallel()
-	repository, err := setup(t)
+func (s *GenericDataTestSuite) SetupSuite() {
+	os.Setenv("TZ", "UTC")
+}
+
+func (s *GenericDataTestSuite) TearDownSuite() {
+	t := s.T()
+	cleanup(t, s.store)
+}
+
+func (s *GenericDataTestSuite) SetupTest() {
+	t := s.T()
+	store, err := setup(t)
+	s.Require().NoError(err)
+	s.store = store
+	s.Require().NotNil(s.store)
+	s.Require().NotNil(s.store.repository)
+	s.Require().NotNil(s.store.repository.db)
+
+	data, err := createTestData(t, s.store)
 	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
+		t.Errorf("failed to create test data: %v\n", err)
 		return
 	}
-	defer repository.Stop(context.Background())
 
-	store := NewGenericStore[Data](repository)
+	s.initData = data
+}
+
+func (s *GenericDataTestSuite) TearDownTest() {
+	s.store.repository.Stop(context.Background())
+}
+
+func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
+	t := s.T()
 
 	t.Run("Ping", func(t *testing.T) {
-		if err := store.Ping(context.Background()); err != nil {
+		if err := s.store.Ping(context.Background()); err != nil {
 			t.Errorf("failed to ping database: %v", err)
 		}
 	})
 }
 
-func TestGenericStore_PingFailed(t *testing.T) {
-	t.Parallel()
-	repository, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
+func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
+	t := s.T()
+	s.store.repository.Stop(context.Background())
 
 	t.Run("Ping", func(t *testing.T) {
-		if err := store.Ping(context.Background()); err == nil {
+		if err := s.store.Ping(context.Background()); err == nil {
 			t.Error("expected error")
 		}
 	})
 }
 
-func TestGenericStore_Create(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_Create() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
 
 	tests := []struct {
 		name    string
@@ -134,48 +159,48 @@ func TestGenericStore_Create(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "no error, key 1",
+			name: "no error, key 4",
 			input: &Data{
 				Model: gorm.Model{
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
-				UniqueID: "unique-id",
-				Key:      "key",
-				Value:    "value",
+				UniqueID: "unique-id-4",
+				Key:      "key4",
+				Value:    "value4",
 			},
 			want: &Data{
 				Model: gorm.Model{
-					ID:        1,
+					ID:        4,
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
-				UniqueID: "unique-id",
-				Key:      "key",
-				Value:    "value",
+				UniqueID: "unique-id-4",
+				Key:      "key4",
+				Value:    "value4",
 			},
 			wantErr: false,
 		},
 		{
-			name: "no error, key 2",
+			name: "no error, key 5",
 			input: &Data{
 				Model: gorm.Model{
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
-				UniqueID: "unique-id-2",
-				Key:      "key",
-				Value:    "value",
+				UniqueID: "unique-id-5",
+				Key:      "key5",
+				Value:    "value5",
 			},
 			want: &Data{
 				Model: gorm.Model{
-					ID:        2,
+					ID:        5,
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
-				UniqueID: "unique-id-2",
-				Key:      "key",
-				Value:    "value",
+				UniqueID: "unique-id-5",
+				Key:      "key5",
+				Value:    "value5",
 			},
 			wantErr: false,
 		},
@@ -186,9 +211,9 @@ func TestGenericStore_Create(t *testing.T) {
 					CreatedAt: now,
 					UpdatedAt: now,
 				},
-				UniqueID: "unique-id",
-				Key:      "key",
-				Value:    "value",
+				UniqueID: "unique-id-1",
+				Key:      "key1",
+				Value:    "value1",
 			},
 			want:    nil,
 			wantErr: true,
@@ -196,7 +221,7 @@ func TestGenericStore_Create(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.Create(context.Background(), nil, tt.input)
+			got, err := s.store.Create(context.Background(), nil, tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.Create() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -208,17 +233,9 @@ func TestGenericStore_Create(t *testing.T) {
 	}
 }
 
-func TestGenericStore_CreateMany(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
 
 	tests := []struct {
 		name    string
@@ -233,47 +250,47 @@ func TestGenericStore_CreateMany(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "no error, key 1-2",
+			name: "no error, key 4-5",
 			input: []Data{
 				{
 					Model: gorm.Model{
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-1",
-					Key:      "key1",
-					Value:    "value1",
+					UniqueID: "unique-id-4",
+					Key:      "key4",
+					Value:    "value4",
 				},
 				{
 					Model: gorm.Model{
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-2",
-					Key:      "key2",
-					Value:    "value2",
+					UniqueID: "unique-id-5",
+					Key:      "key5",
+					Value:    "value5",
 				},
 			},
 			want: []Data{
 				{
 					Model: gorm.Model{
-						ID:        1,
+						ID:        4,
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-1",
-					Key:      "key1",
-					Value:    "value1",
+					UniqueID: "unique-id-4",
+					Key:      "key4",
+					Value:    "value4",
 				},
 				{
 					Model: gorm.Model{
-						ID:        2,
+						ID:        5,
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-2",
-					Key:      "key2",
-					Value:    "value2",
+					UniqueID: "unique-id-5",
+					Key:      "key5",
+					Value:    "value5",
 				},
 			},
 			wantErr: false,
@@ -286,18 +303,18 @@ func TestGenericStore_CreateMany(t *testing.T) {
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-2",
-					Key:      "key2",
-					Value:    "value2",
+					UniqueID: "unique-id-5",
+					Key:      "key5",
+					Value:    "value5",
 				},
 				{
 					Model: gorm.Model{
 						CreatedAt: now,
 						UpdatedAt: now,
 					},
-					UniqueID: "unique-id-3",
-					Key:      "key3",
-					Value:    "value3",
+					UniqueID: "unique-id-6",
+					Key:      "key6",
+					Value:    "value6",
 				},
 			},
 			want:    nil,
@@ -306,7 +323,7 @@ func TestGenericStore_CreateMany(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.CreateMany(context.Background(), nil, tt.input)
+			got, err := s.store.CreateMany(context.Background(), nil, tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.CreateMany() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -318,18 +335,9 @@ func TestGenericStore_CreateMany(t *testing.T) {
 	}
 }
 
-func TestGenericStore_Get(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_Get() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
 
 	tests := []struct {
 		name    string
@@ -376,7 +384,7 @@ func TestGenericStore_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.Get(context.Background(), nil, tt.id)
+			got, err := s.store.Get(context.Background(), nil, tt.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -388,18 +396,9 @@ func TestGenericStore_Get(t *testing.T) {
 	}
 }
 
-func TestGenericStore_GetMany(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
 
 	tests := []struct {
 		name    string
@@ -487,7 +486,7 @@ func TestGenericStore_GetMany(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.GetMany(context.Background(), nil, tt.ids)
+			got, err := s.store.GetMany(context.Background(), nil, tt.ids)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.GetMany() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -499,18 +498,9 @@ func TestGenericStore_GetMany(t *testing.T) {
 	}
 }
 
-func TestGenericStore_GetByCriterias(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
 
 	tests := []struct {
 		name      string
@@ -589,7 +579,7 @@ func TestGenericStore_GetByCriterias(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.GetByCriterias(context.Background(), nil, tt.fields, tt.criterias, tt.orderBys)
+			got, err := s.store.GetByCriterias(context.Background(), nil, tt.fields, tt.criterias, tt.orderBys)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.GetByCriterias() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -601,20 +591,11 @@ func TestGenericStore_GetByCriterias(t *testing.T) {
 	}
 }
 
-func TestGenericStore_GetManyByCriterias(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
 
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
-
-	if _, err := store.Create(context.Background(), nil, &Data{
+	if _, err := s.store.Create(context.Background(), nil, &Data{
 		Model: gorm.Model{
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -715,7 +696,7 @@ func TestGenericStore_GetManyByCriterias(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.GetManyByCriterias(
+			got, err := s.store.GetManyByCriterias(
 				context.Background(), nil,
 				tt.fields, tt.criterias, tt.orderBys,
 				tt.offset, tt.limit,
@@ -733,18 +714,9 @@ func TestGenericStore_GetManyByCriterias(t *testing.T) {
 	}
 }
 
-func TestGenericStore_Update(t *testing.T) {
-	t.Parallel()
+func (s *GenericDataTestSuite) TestGenericStore_Update() {
+	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
 
 	tests := []struct {
 		name    string
@@ -782,7 +754,7 @@ func TestGenericStore_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := store.Update(context.Background(), nil, tt.data)
+			err := s.store.Update(context.Background(), nil, tt.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.Update() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -791,17 +763,8 @@ func TestGenericStore_Update(t *testing.T) {
 	}
 }
 
-func TestGenericStore_Delete(t *testing.T) {
-	t.Parallel()
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
+func (s *GenericDataTestSuite) TestGenericStore_Delete() {
+	t := s.T()
 
 	tests := []struct {
 		name      string
@@ -828,29 +791,29 @@ func TestGenericStore_Delete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := store.Delete(context.Background(), nil, tt.permanent, tt.id)
+			err := s.store.Delete(context.Background(), nil, tt.permanent, tt.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.Delete() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if !tt.permanent {
-				store.repository.mutex.RLock()
-				if _, err := store.Get(context.Background(), nil, tt.id); err == nil {
+				s.store.repository.mutex.RLock()
+				if _, err := s.store.Get(context.Background(), nil, tt.id); err == nil {
 					t.Errorf("still found after delete")
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 					return
 				} else {
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 				}
 			} else {
-				store.repository.mutex.RLock()
-				if err := store.repository.db.Unscoped().First(&Data{}, tt.id).Error; err == nil {
+				s.store.repository.mutex.RLock()
+				if err := s.store.repository.db.Unscoped().First(&Data{}, tt.id).Error; err == nil {
 					t.Errorf("still found after delete")
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 					return
 				} else {
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 				}
 			}
 
@@ -858,17 +821,8 @@ func TestGenericStore_Delete(t *testing.T) {
 	}
 }
 
-func TestGenericStore_DeleteMany(t *testing.T) {
-	t.Parallel()
-	repository, err := setup(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
-		return
-	}
-	defer repository.Stop(context.Background())
-
-	store := NewGenericStore[Data](repository)
-	createTestData(t, store)
+func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
+	t := s.T()
 
 	tests := []struct {
 		name      string
@@ -901,7 +855,7 @@ func TestGenericStore_DeleteMany(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.DeleteMany(context.Background(), nil, tt.permanent, tt.ids)
+			got, err := s.store.DeleteMany(context.Background(), nil, tt.permanent, tt.ids)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.Update() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -911,26 +865,30 @@ func TestGenericStore_DeleteMany(t *testing.T) {
 			}
 
 			if !tt.permanent {
-				store.repository.mutex.RLock()
-				if out, err := store.GetMany(context.Background(), nil, tt.ids); err == nil && len(out) != 0 {
+				s.store.repository.mutex.RLock()
+				if out, err := s.store.GetMany(context.Background(), nil, tt.ids); err == nil && len(out) != 0 {
 					t.Errorf("still found after delete")
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 					return
 				} else {
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 				}
 			} else {
-				store.repository.mutex.RLock()
+				s.store.repository.mutex.RLock()
 				var data []*Data
-				if err := store.repository.db.Unscoped().Find(&data, tt.ids).Error; err == nil && len(data) != 0 {
+				if err := s.store.repository.db.Unscoped().Find(&data, tt.ids).Error; err == nil && len(data) != 0 {
 					t.Errorf("still found after delete")
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 					return
 				} else {
-					store.repository.mutex.RUnlock()
+					s.store.repository.mutex.RUnlock()
 				}
 			}
 
 		})
 	}
+}
+
+func TestGenericDataTestSuite(t *testing.T) {
+	suite.Run(t, new(GenericDataTestSuite))
 }

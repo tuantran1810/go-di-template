@@ -1,4 +1,4 @@
-package stores
+package mysql
 
 import (
 	"context"
@@ -6,18 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/tuantran1810/go-di-template/libs/logger"
+	goMysql "github.com/go-sql-driver/mysql"
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 const defaultTimeout = 20 * time.Second
-
-var log = logger.MustNamedLogger("stores")
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -101,43 +98,98 @@ func handleTransactionError(err error) error {
 }
 
 type RepositoryConfig struct {
-	DatabasePath string
+	Username  string
+	Password  string
+	Protocol  string
+	Address   string
+	Database  string
+	Params    map[string]string
+	Collation string
+	Loc       *time.Location
+	TLSConfig string
+
+	Timeout      time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+
+	AllowAllFiles           bool
+	AllowCleartextPasswords bool
+	AllowOldPasswords       bool
+	ClientFoundRows         bool
+	ColumnsWithAlias        bool
+	InterpolateParams       bool
+	MultiStatements         bool
+	ParseTime               bool
+
+	MaxOpenConns           uint32
+	MaxIdleConns           uint32
+	ConnMaxLifeTimeSeconds uint32
+}
+
+func (cfg RepositoryConfig) DSN() string {
+	mysqlConfig := &goMysql.Config{
+		User:                    cfg.Username,
+		Passwd:                  cfg.Password,
+		Net:                     cfg.Protocol,
+		Addr:                    cfg.Address,
+		DBName:                  cfg.Database,
+		Params:                  cfg.Params,
+		Collation:               cfg.Collation,
+		Loc:                     cfg.Loc,
+		TLSConfig:               cfg.TLSConfig,
+		Timeout:                 cfg.Timeout,
+		ReadTimeout:             cfg.ReadTimeout,
+		WriteTimeout:            cfg.WriteTimeout,
+		AllowAllFiles:           cfg.AllowAllFiles,
+		AllowCleartextPasswords: cfg.AllowCleartextPasswords,
+		AllowOldPasswords:       cfg.AllowOldPasswords,
+		ClientFoundRows:         cfg.ClientFoundRows,
+		ColumnsWithAlias:        cfg.ColumnsWithAlias,
+		InterpolateParams:       cfg.InterpolateParams,
+		MultiStatements:         cfg.MultiStatements,
+		ParseTime:               cfg.ParseTime,
+		AllowNativePasswords:    true,
+	}
+
+	return mysqlConfig.FormatDSN()
 }
 
 type Repository struct {
-	mutex sync.RWMutex
-	db    *gorm.DB
-}
-
-func NewRepository(cfg RepositoryConfig) (*Repository, error) {
-	db, err := gorm.Open(sqlite.Open(cfg.DatabasePath), &gorm.Config{}) //nolint: varnamelen
-	if err != nil {
-		return nil, fmt.Errorf("%w - failed to open database: %w", models.ErrDatabase, err)
-	}
-
-	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
-		return nil, fmt.Errorf("%w - failed to enable foreign keys: %w", models.ErrDatabase, err)
-	}
-
-	if err := db.Exec("PRAGMA journal_mode = WAL").Error; err != nil {
-		return nil, fmt.Errorf("%w - failed to enable WAL mode: %w", models.ErrDatabase, err)
-	}
-
-	return &Repository{db: db}, nil
+	RepositoryConfig
+	db *gorm.DB
 }
 
 func MustNewRepository(cfg RepositoryConfig) *Repository {
-	repo, err := NewRepository(cfg)
-	if err != nil {
-		panic(err)
+	return &Repository{
+		RepositoryConfig: cfg,
 	}
-
-	return repo
 }
 
-func (r *Repository) Start(_ context.Context) error {
-	log.Infof("starting sqlite repository")
-	return nil
+func (r *Repository) Start(ctx context.Context) error {
+	dsn := r.RepositoryConfig.DSN()
+	db, err := gorm.Open(
+		mysql.Open(dsn),
+		&gorm.Config{},
+	)
+	if err != nil {
+		return fmt.Errorf("%w - failed to open database: %w", models.ErrDatabase, err)
+	}
+
+	dbInstance, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("%w - failed to get database instance: %w", models.ErrDatabase, err)
+	}
+
+	dbInstance.SetMaxOpenConns(int(r.RepositoryConfig.MaxOpenConns))
+	dbInstance.SetMaxIdleConns(int(r.RepositoryConfig.MaxIdleConns))
+	dbInstance.SetConnMaxLifetime(time.Duration(r.RepositoryConfig.ConnMaxLifeTimeSeconds) * time.Second)
+
+	if err := dbInstance.Ping(); err != nil {
+		return fmt.Errorf("%w - failed to ping database: %w", models.ErrDatabase, err)
+	}
+
+	r.db = db
+	return r.Check(ctx)
 }
 
 func (r *Repository) Stop(_ context.Context) error {
@@ -148,6 +200,17 @@ func (r *Repository) Stop(_ context.Context) error {
 
 	if err := db.Close(); err != nil {
 		return fmt.Errorf("%w - failed to close database connection: %w", models.ErrDatabase, err)
+	}
+
+	return nil
+}
+
+func (r *Repository) Check(ctx context.Context) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	if err := r.db.WithContext(timeoutCtx).Exec("SELECT 1").Error; err != nil {
+		return generateError("failed to ping database", err)
 	}
 
 	return nil
