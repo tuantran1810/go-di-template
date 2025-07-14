@@ -2,11 +2,18 @@ package stores
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/suite"
+	"github.com/testcontainers/testcontainers-go"
+	mysqlModule "github.com/testcontainers/testcontainers-go/modules/mysql"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
+	"github.com/tuantran1810/go-di-template/uberfx/internal/stores/mysql"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +45,7 @@ func getUserTestData(t *testing.T) []models.User {
 	}
 }
 
-func createUserTestData(t *testing.T, store *UserStore) {
+func createTestData(t *testing.T, store *UserStore) {
 	t.Helper()
 
 	if _, err := store.CreateMany(context.Background(), nil, getUserTestData(t)); err != nil {
@@ -47,31 +54,128 @@ func createUserTestData(t *testing.T, store *UserStore) {
 	}
 }
 
-func setupUserTest(t *testing.T) (*Repository, error) {
+func setup(t *testing.T, port int) (*UserStore, error) {
 	t.Helper()
-	r, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
-	if err != nil {
+
+	config := mysql.RepositoryConfig{
+		Username:  "root",
+		Password:  "secret",
+		Protocol:  "tcp",
+		Address:   fmt.Sprintf("127.0.0.1:%d", port),
+		Database:  "test",
+		Params:    map[string]string{},
+		Collation: "utf8mb4_general_ci",
+		Loc:       time.Local,
+		TLSConfig: "",
+
+		Timeout:                 10 * time.Second,
+		ReadTimeout:             10 * time.Second,
+		WriteTimeout:            10 * time.Second,
+		AllowAllFiles:           false,
+		AllowCleartextPasswords: false,
+		AllowOldPasswords:       false,
+		ClientFoundRows:         false,
+		ColumnsWithAlias:        false,
+		InterpolateParams:       false,
+		MultiStatements:         false,
+		ParseTime:               true,
+
+		MaxOpenConns:           10,
+		MaxIdleConns:           10,
+		ConnMaxLifeTimeSeconds: 1800,
+	}
+	r := mysql.MustNewRepository(config)
+	if err := r.Start(context.Background()); err != nil {
 		return nil, err
 	}
 
-	if err := r.db.AutoMigrate(&models.User{}); err != nil {
-		return nil, err
-	}
-	return r, nil
+	return &UserStore{
+		GenericStore: mysql.NewGenericStore[models.User](r),
+	}, nil
 }
 
-func TestUserStore_FindByUsername(t *testing.T) {
-	t.Parallel()
-	now := time.Now().UTC().Truncate(time.Second)
-	repository, err := setupUserTest(t)
-	if err != nil {
-		t.Errorf("failed to setup repository: %v", err)
+func cleanup(t *testing.T, store *UserStore) {
+	t.Helper()
+
+	if err := store.DB().Exec("DROP TABLE IF EXISTS `test`.`users`").Error; err != nil {
+		t.Logf("failed to cleanup data: %v\n", err)
 		return
 	}
-	defer repository.Stop(context.Background())
+}
 
-	s := NewUserStore(repository)
-	createUserTestData(t, s)
+type UserStoreTestSuite struct {
+	suite.Suite
+	store     *UserStore
+	container *mysqlModule.MySQLContainer
+}
+
+func (s *UserStoreTestSuite) SetupSuite() {
+	t := s.T()
+	os.Setenv("TZ", "UTC")
+
+	mysqlContainer, err := mysqlModule.Run(context.Background(),
+		"mysql:lts",
+		mysqlModule.WithDatabase("test"),
+		mysqlModule.WithUsername("root"),
+		mysqlModule.WithPassword("secret"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("port: 3306  MySQL Community Server - GPL").WithStartupTimeout(30*time.Second),
+			wait.ForListeningPort("3306/tcp").WithStartupTimeout(30*time.Second),
+		),
+	)
+	s.Require().NoError(err)
+
+	port, err := mysqlContainer.MappedPort(context.Background(), "3306")
+	s.Require().NoError(err)
+	s.Require().NotNil(port)
+
+	s.Require().NoError(err)
+	s.container = mysqlContainer
+	s.Require().NotNil(s.container)
+
+	store, err := setup(t, port.Int())
+	s.Require().NoError(err)
+	s.store = store
+	s.Require().NotNil(s.store)
+	if err := store.DB().Exec("SET @@global.time_zone = '+00:00'").Error; err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
+}
+
+func (s *UserStoreTestSuite) TearDownSuite() {
+	t := s.T()
+	cleanup(t, s.store)
+
+	if err := testcontainers.TerminateContainer(s.container); err != nil {
+		t.Errorf("failed to terminate container: %v", err)
+		return
+	}
+}
+
+func (s *UserStoreTestSuite) SetupTest() {
+	t := s.T()
+	s.Require().NoError(s.store.AutoMigrate(context.Background()))
+
+	if err := s.store.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	createTestData(t, s.store)
+}
+
+func (s *UserStoreTestSuite) TearDownTest() {
+	t := s.T()
+	if err := s.store.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+}
+
+func (s *UserStoreTestSuite) TestUserStore_FindByUsername() {
+	t := s.T()
+	now := time.Now().UTC().Truncate(time.Second)
 
 	tests := []struct {
 		name     string
@@ -101,7 +205,7 @@ func TestUserStore_FindByUsername(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := s.FindByUsername(context.TODO(), nil, tt.username)
+			got, err := s.store.FindByUsername(context.TODO(), nil, tt.username)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UserStore.FindByUsername() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -111,4 +215,8 @@ func TestUserStore_FindByUsername(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUserStoreTestSuite(t *testing.T) {
+	suite.Run(t, new(UserStoreTestSuite))
 }

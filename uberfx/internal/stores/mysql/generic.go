@@ -10,11 +10,11 @@ import (
 const DefaultLimit = 100
 
 type GenericStore[T any] struct {
-	repository *Repository
+	*Repository
 }
 
 func NewGenericStore[T any](repository *Repository) *GenericStore[T] {
-	return &GenericStore[T]{repository: repository}
+	return &GenericStore[T]{Repository: repository}
 }
 
 func (s *GenericStore[T]) Ping(ctx context.Context) error {
@@ -22,7 +22,7 @@ func (s *GenericStore[T]) Ping(ctx context.Context) error {
 	defer cancel()
 
 	var entity T
-	dbtx := s.repository.getTransaction(nil).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(nil).WithContext(timeoutCtx)
 	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
 		return generateError("failed to ping database", err)
 	}
@@ -36,7 +36,7 @@ func (s *GenericStore[T]) AutoMigrate(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	return s.repository.db.WithContext(timeoutCtx).AutoMigrate(&entity)
+	return s.db.WithContext(timeoutCtx).AutoMigrate(&entity)
 }
 
 func (s *GenericStore[T]) Create(
@@ -51,7 +51,7 @@ func (s *GenericStore[T]) Create(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	if err := dbtx.Create(entity).Error; err != nil {
 		return nil, generateError("failed to create entity", err)
 	}
@@ -71,7 +71,7 @@ func (s *GenericStore[T]) CreateMany(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	if err := dbtx.Create(entities).Error; err != nil {
 		return nil, generateError("failed to create entities", err)
 	}
@@ -87,7 +87,7 @@ func (s *GenericStore[T]) Get(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	var entity T
 	if err := dbtx.First(&entity, id).Error; err != nil {
 		return nil, generateError("failed to get entity", err)
@@ -108,7 +108,7 @@ func (s *GenericStore[T]) GetMany(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	var entities []*T
 	if err := dbtx.Find(&entities, ids).Error; err != nil {
 		return nil, generateError("failed to get entities", err)
@@ -128,7 +128,7 @@ func (s *GenericStore[T]) GetByCriterias(
 	defer cancel()
 
 	var entity T
-	dbtx := s.repository.
+	dbtx := s.
 		getTransaction(tx).
 		WithContext(timeoutCtx)
 	if len(fields) > 0 {
@@ -160,7 +160,7 @@ func (s *GenericStore[T]) GetManyByCriterias(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 
 	for k, v := range criterias {
 		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
@@ -197,7 +197,7 @@ func (s *GenericStore[T]) Update(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	dbtx = dbtx.Updates(entity)
 	if err := dbtx.Error; err != nil {
 		return generateError("failed to update entity", err)
@@ -218,7 +218,7 @@ func (s *GenericStore[T]) Delete(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	if permanent {
 		dbtx = dbtx.Unscoped()
 	}
@@ -246,7 +246,7 @@ func (s *GenericStore[T]) DeleteMany(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	dbtx := s.repository.getTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.getTransaction(tx).WithContext(timeoutCtx)
 	if permanent {
 		dbtx = dbtx.Unscoped()
 	}

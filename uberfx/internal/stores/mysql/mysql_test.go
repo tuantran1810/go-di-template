@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/mysql"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
 	"gorm.io/gorm"
 )
@@ -171,11 +174,34 @@ func Test_getEntityError(t *testing.T) {
 }
 
 func TestRepository_Start(t *testing.T) {
+	mysqlContainer, err := mysql.Run(context.Background(),
+		"mysql:lts",
+		mysql.WithDatabase("test"),
+		mysql.WithUsername("root"),
+		mysql.WithPassword("secret"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("port: 3306  MySQL Community Server - GPL").WithStartupTimeout(30*time.Second),
+			wait.ForListeningPort("3306/tcp").WithStartupTimeout(30*time.Second),
+		),
+	)
+	if err != nil {
+		t.Errorf("failed to start mysql container: %v", err)
+		return
+	}
+
+	port, err := mysqlContainer.MappedPort(context.Background(), "3306")
+	if err != nil {
+		t.Errorf("failed to get mysql port: %v", err)
+		return
+	}
+
+	defer mysqlContainer.Terminate(context.Background())
+
 	config := RepositoryConfig{
 		Username:  "root",
 		Password:  "secret",
 		Protocol:  "tcp",
-		Address:   "127.0.0.1:3306",
+		Address:   fmt.Sprintf("127.0.0.1:%d", port.Int()),
 		Database:  "test",
 		Params:    map[string]string{},
 		Collation: "utf8mb4_general_ci",

@@ -216,6 +216,10 @@ func (r *Repository) Check(ctx context.Context) error {
 	return nil
 }
 
+func (r *Repository) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *Repository) getTransaction(tx models.Transaction) *gorm.DB {
 	if tx == nil {
 		return r.db
@@ -243,6 +247,7 @@ func (r *Repository) RunTx(ctx context.Context, data any, funcs ...models.DBTxHa
 		for _, f := range funcs {
 			if f != nil {
 				outData, cont, ferr := f(timeoutCtx, txKeeper, data)
+				data = outData
 				if ferr != nil {
 					return ferr
 				}
@@ -250,8 +255,6 @@ func (r *Repository) RunTx(ctx context.Context, data any, funcs ...models.DBTxHa
 				if !cont {
 					break
 				}
-
-				data = outData
 			}
 		}
 

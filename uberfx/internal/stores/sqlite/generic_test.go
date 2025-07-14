@@ -3,12 +3,14 @@ package stores
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/suite"
+	"github.com/tuantran1810/go-di-template/uberfx/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +39,7 @@ func setup(t *testing.T) (*GenericStore[Data], error) {
 func cleanup(t *testing.T, store *GenericStore[Data]) {
 	t.Helper()
 
-	if err := store.repository.db.Exec("DROP TABLE IF EXISTS `test`.`data`").Error; err != nil {
+	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`data`").Error; err != nil {
 		t.Logf("failed to cleanup data: %v\n", err)
 		return
 	}
@@ -105,8 +107,8 @@ func (s *GenericDataTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.store = store
 	s.Require().NotNil(s.store)
-	s.Require().NotNil(s.store.repository)
-	s.Require().NotNil(s.store.repository.db)
+	s.Require().NotNil(s.store.Repository)
+	s.Require().NotNil(s.store.db)
 
 	data, err := createTestData(t, s.store)
 	if err != nil {
@@ -118,7 +120,7 @@ func (s *GenericDataTestSuite) SetupTest() {
 }
 
 func (s *GenericDataTestSuite) TearDownTest() {
-	s.store.repository.Stop(context.Background())
+	s.store.Stop(context.Background())
 }
 
 func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
@@ -133,7 +135,7 @@ func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
 
 func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
 	t := s.T()
-	s.store.repository.Stop(context.Background())
+	s.store.Stop(context.Background())
 
 	t.Run("Ping", func(t *testing.T) {
 		if err := s.store.Ping(context.Background()); err == nil {
@@ -798,22 +800,22 @@ func (s *GenericDataTestSuite) TestGenericStore_Delete() {
 			}
 
 			if !tt.permanent {
-				s.store.repository.mutex.RLock()
+				s.store.mutex.RLock()
 				if _, err := s.store.Get(context.Background(), nil, tt.id); err == nil {
 					t.Errorf("still found after delete")
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 					return
 				} else {
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 				}
 			} else {
-				s.store.repository.mutex.RLock()
-				if err := s.store.repository.db.Unscoped().First(&Data{}, tt.id).Error; err == nil {
+				s.store.mutex.RLock()
+				if err := s.store.db.Unscoped().First(&Data{}, tt.id).Error; err == nil {
 					t.Errorf("still found after delete")
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 					return
 				} else {
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 				}
 			}
 
@@ -865,26 +867,235 @@ func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
 			}
 
 			if !tt.permanent {
-				s.store.repository.mutex.RLock()
+				s.store.mutex.RLock()
 				if out, err := s.store.GetMany(context.Background(), nil, tt.ids); err == nil && len(out) != 0 {
 					t.Errorf("still found after delete")
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 					return
 				} else {
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 				}
 			} else {
-				s.store.repository.mutex.RLock()
+				s.store.mutex.RLock()
 				var data []*Data
-				if err := s.store.repository.db.Unscoped().Find(&data, tt.ids).Error; err == nil && len(data) != 0 {
+				if err := s.store.db.Unscoped().Find(&data, tt.ids).Error; err == nil && len(data) != 0 {
 					t.Errorf("still found after delete")
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 					return
 				} else {
-					s.store.repository.mutex.RUnlock()
+					s.store.mutex.RUnlock()
 				}
 			}
 
+		})
+	}
+}
+
+func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
+	t := s.T()
+
+	tests := []struct {
+		name      string
+		data      any
+		funcs     []models.DBTxHandleFunc
+		want      any
+		wantCount int
+		wantErr   bool
+	}{
+		{
+			name: "no error",
+			data: make([]Data, 2),
+			funcs: []models.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-4",
+						Key:      "key4",
+						Value:    "value4",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[0] = *tmp
+					return out, true, nil
+				},
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-5",
+						Key:      "key5",
+						Value:    "value5",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[1] = *tmp
+					return out, true, nil
+				},
+			},
+			want: []Data{
+				{
+					Model: gorm.Model{
+						ID:        4,
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					},
+					UniqueID: "unique-id-4",
+					Key:      "key4",
+					Value:    "value4",
+				},
+				{
+					Model: gorm.Model{
+						ID:        5,
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					},
+					UniqueID: "unique-id-5",
+					Key:      "key5",
+					Value:    "value5",
+				},
+			},
+			wantCount: 5,
+			wantErr:   false,
+		},
+		{
+			name: "with error",
+			data: make([]Data, 2),
+			funcs: []models.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-6",
+						Key:      "key6",
+						Value:    "value6",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[0] = *tmp
+					return out, true, nil
+				},
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-7",
+						Key:      "key7",
+						Value:    "value7",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[1] = *tmp
+					return out, true, nil
+				},
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					return nil, false, errors.New("fake error")
+				},
+			},
+			want:      nil,
+			wantCount: 5,
+			wantErr:   true,
+		},
+		{
+			name: "stop in the middle",
+			data: make([]Data, 2),
+			funcs: []models.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-6",
+						Key:      "key6",
+						Value:    "value6",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[0] = *tmp
+					return out, false, nil
+				},
+				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+					out := data.([]Data)
+					item := Data{
+						Model: gorm.Model{
+							CreatedAt: time.Now().UTC().Truncate(time.Second),
+							UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						},
+						UniqueID: "unique-id-7",
+						Key:      "key7",
+						Value:    "value7",
+					}
+					tmp, err := s.store.Create(ctx, txKeeper, &item)
+					if err != nil {
+						return nil, false, err
+					}
+					out[1] = *tmp
+					return out, true, nil
+				},
+			},
+			want: []Data{
+				{
+					Model: gorm.Model{
+						ID:        6,
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					},
+					UniqueID: "unique-id-6",
+					Key:      "key6",
+					Value:    "value6",
+				},
+				{},
+			},
+			wantCount: 6,
+			wantErr:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := s.store.RunTx(
+				context.Background(),
+				tt.data,
+				tt.funcs...,
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("store.RunTx() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(out, tt.want) {
+				t.Errorf("store.RunTx() = %v, want %v", out, tt.want)
+			}
+			var cnt int64
+			if err := s.store.DB().Model(&Data{}).Count(&cnt).Error; err != nil {
+				t.Errorf("failed to count data: %v", err)
+				return
+			}
+			if cnt != int64(tt.wantCount) {
+				t.Errorf("store.RunTx() count = %v, want %v", cnt, tt.wantCount)
+			}
 		})
 	}
 }

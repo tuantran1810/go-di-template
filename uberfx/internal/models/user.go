@@ -8,7 +8,7 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"uniqueIndex"`
+	Username string `gorm:"uniqueIndex,size:32"`
 	Password string
 	Uuid     string
 	Name     string
