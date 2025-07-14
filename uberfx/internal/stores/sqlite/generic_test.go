@@ -716,6 +716,73 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 	}
 }
 
+func (s *GenericDataTestSuite) TestGenericStore_Count() {
+	t := s.T()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	if _, err := s.store.Create(context.Background(), nil, &Data{
+		Model: gorm.Model{
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		UniqueID: "unique-id-4",
+		Key:      "key1",
+		Value:    "value2",
+	}); err != nil {
+		t.Errorf("failed to create data: %v", err)
+		return
+	}
+
+	tests := []struct {
+		name      string
+		criterias map[string]any
+		want      int64
+		wantErr   bool
+	}{
+		{
+			name: "key 1",
+			criterias: map[string]any{
+				"key": "key1",
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "key 2",
+			criterias: map[string]any{
+				"key": "key2",
+			},
+			want:    1,
+			wantErr: false,
+		},
+		{
+			name: "key 1000",
+			criterias: map[string]any{
+				"key": "key1000",
+			},
+			want:    0,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.store.Count(
+				context.Background(), nil,
+				tt.criterias,
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("store.Count() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				jgot, _ := json.Marshal(got)
+				jwant, _ := json.Marshal(tt.want)
+				t.Errorf("store.Count() = %s, want %s", jgot, jwant)
+			}
+		})
+	}
+}
+
 func (s *GenericDataTestSuite) TestGenericStore_Update() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)

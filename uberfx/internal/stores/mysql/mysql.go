@@ -220,7 +220,7 @@ func (r *Repository) DB() *gorm.DB {
 	return r.db
 }
 
-func (r *Repository) getTransaction(tx models.Transaction) *gorm.DB {
+func (r *Repository) GetTransaction(tx models.Transaction) *gorm.DB {
 	if tx == nil {
 		return r.db
 	}
