@@ -24,7 +24,7 @@ func (s *GenericStore[T]) Ping(ctx context.Context) error {
 	var entity T
 	dbtx := s.GetTransaction(nil).WithContext(timeoutCtx)
 	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
-		return generateError("failed to ping database", err)
+		return GenerateError("failed to ping database", err)
 	}
 
 	return nil
@@ -53,7 +53,7 @@ func (s *GenericStore[T]) Create(
 
 	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
 	if err := dbtx.Create(entity).Error; err != nil {
-		return nil, generateError("failed to create entity", err)
+		return nil, GenerateError("failed to create entity", err)
 	}
 
 	return entity, nil
@@ -73,7 +73,7 @@ func (s *GenericStore[T]) CreateMany(
 
 	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
 	if err := dbtx.Create(entities).Error; err != nil {
-		return nil, generateError("failed to create entities", err)
+		return nil, GenerateError("failed to create entities", err)
 	}
 
 	return entities, nil
@@ -90,7 +90,7 @@ func (s *GenericStore[T]) Get(
 	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
 	var entity T
 	if err := dbtx.First(&entity, id).Error; err != nil {
-		return nil, generateError("failed to get entity", err)
+		return nil, GenerateError("failed to get entity", err)
 	}
 
 	return &entity, nil
@@ -111,7 +111,7 @@ func (s *GenericStore[T]) GetMany(
 	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
 	var entities []*T
 	if err := dbtx.Find(&entities, ids).Error; err != nil {
-		return nil, generateError("failed to get entities", err)
+		return nil, GenerateError("failed to get entities", err)
 	}
 
 	return entities, nil
@@ -142,7 +142,7 @@ func (s *GenericStore[T]) GetByCriterias(
 	}
 
 	if err := dbtx.First(&entity).Error; err != nil {
-		return nil, generateError("failed to get entity", err)
+		return nil, GenerateError("failed to get entity", err)
 	}
 
 	return &entity, nil
@@ -179,7 +179,7 @@ func (s *GenericStore[T]) GetManyByCriterias(
 		Select(fields).
 		Find(&entities).
 		Error; err != nil {
-		return nil, generateError("failed to get entity", err)
+		return nil, GenerateError("failed to get entity", err)
 	}
 
 	return entities, nil
@@ -202,7 +202,7 @@ func (s *GenericStore[T]) Count(
 	var entity T
 	var cnt int64
 	if err := dbtx.Model(&entity).Count(&cnt).Error; err != nil {
-		return 0, generateError("failed to count", err)
+		return 0, GenerateError("failed to count", err)
 	}
 
 	return cnt, nil
@@ -223,7 +223,7 @@ func (s *GenericStore[T]) Update(
 	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
 	dbtx = dbtx.Updates(entity)
 	if err := dbtx.Error; err != nil {
-		return generateError("failed to update entity", err)
+		return GenerateError("failed to update entity", err)
 	}
 	if dbtx.RowsAffected == 0 {
 		return fmt.Errorf("%w - no rows affected", models.ErrNotFound)
@@ -250,7 +250,7 @@ func (s *GenericStore[T]) Delete(
 	if err := dbtx.
 		Model(&entity).
 		Delete("id = ?", id).Error; err != nil {
-		return generateError("failed to delete entity", err)
+		return GenerateError("failed to delete entity", err)
 	}
 
 	return nil
@@ -277,7 +277,7 @@ func (s *GenericStore[T]) DeleteMany(
 	var entity T
 	dbtx = dbtx.Model(&entity).Delete("id in (?)", ids)
 	if err := dbtx.Error; err != nil {
-		return 0, generateError("failed to delete entities", err)
+		return 0, GenerateError("failed to delete entities", err)
 	}
 
 	return dbtx.RowsAffected, nil

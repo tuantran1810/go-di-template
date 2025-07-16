@@ -21,19 +21,31 @@ type Data struct {
 	Value    string
 }
 
-func setup(t *testing.T) (*GenericStore[Data], error) {
+type FkData struct {
+	gorm.Model
+	DataRefer uint
+	Data      Data `gorm:"foreignKey:DataRefer"`
+	Metadata  string
+}
+
+func setup(t *testing.T) (*GenericStore[Data], *GenericStore[FkData], error) {
 	t.Helper()
 	r, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := r.db.AutoMigrate(&Data{}); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	if err := r.db.AutoMigrate(&FkData{}); err != nil {
+		return nil, nil, err
 	}
 
 	store := NewGenericStore[Data](r)
-	return store, nil
+	fkStore := NewGenericStore[FkData](r)
+	return store, fkStore, nil
 }
 
 func cleanup(t *testing.T, store *GenericStore[Data]) {
@@ -90,6 +102,7 @@ type GenericDataTestSuite struct {
 	suite.Suite
 	initData []Data
 	store    *GenericStore[Data]
+	fkStore  *GenericStore[FkData]
 }
 
 func (s *GenericDataTestSuite) SetupSuite() {
@@ -103,12 +116,17 @@ func (s *GenericDataTestSuite) TearDownSuite() {
 
 func (s *GenericDataTestSuite) SetupTest() {
 	t := s.T()
-	store, err := setup(t)
+	store, fkStore, err := setup(t)
 	s.Require().NoError(err)
 	s.store = store
 	s.Require().NotNil(s.store)
 	s.Require().NotNil(s.store.Repository)
 	s.Require().NotNil(s.store.db)
+
+	s.fkStore = fkStore
+	s.Require().NotNil(s.fkStore)
+	s.Require().NotNil(s.fkStore.Repository)
+	s.Require().NotNil(s.fkStore.db)
 
 	data, err := createTestData(t, s.store)
 	if err != nil {
@@ -121,6 +139,7 @@ func (s *GenericDataTestSuite) SetupTest() {
 
 func (s *GenericDataTestSuite) TearDownTest() {
 	s.store.Stop(context.Background())
+	s.fkStore.Stop(context.Background())
 }
 
 func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
@@ -230,6 +249,42 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("store.Create() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
+	t := s.T()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	tests := []struct {
+		name    string
+		input   *FkData
+		want    *FkData
+		wantErr bool
+	}{
+		{
+			name: "error, no fk data",
+			input: &FkData{
+				Model: gorm.Model{
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				DataRefer: 0,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.fkStore.Create(context.Background(), nil, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fkStore.Create() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("fkStore.Create() = %v, want %v", got, tt.want)
 			}
 		})
 	}

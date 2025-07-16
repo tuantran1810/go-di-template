@@ -21,7 +21,7 @@ func isInvalidInputError(err error) bool {
 		return false
 	}
 
-	if strings.Contains(err.Error(), "constraint failed") {
+	if strings.Contains(err.Error(), "constraint") {
 		return true
 	}
 
@@ -73,7 +73,7 @@ func getEntityError(err error) error {
 	return models.ErrDatabase
 }
 
-func generateError(errStr string, err error) error {
+func GenerateError(errStr string, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -94,7 +94,7 @@ func handleTransactionError(err error) error {
 		return err
 	}
 
-	return generateError("transaction error", err)
+	return GenerateError("transaction error", err)
 }
 
 type RepositoryConfig struct {
@@ -210,7 +210,7 @@ func (r *Repository) Check(ctx context.Context) error {
 	defer cancel()
 
 	if err := r.db.WithContext(timeoutCtx).Exec("SELECT 1").Error; err != nil {
-		return generateError("failed to ping database", err)
+		return GenerateError("failed to ping database", err)
 	}
 
 	return nil

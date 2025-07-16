@@ -25,7 +25,14 @@ type Data struct {
 	Value    string
 }
 
-func setup(t *testing.T, port int) (*GenericStore[Data], error) {
+type FkData struct {
+	gorm.Model
+	DataRefer uint
+	Data      Data `gorm:"foreignKey:DataRefer"`
+	Metadata  string
+}
+
+func setup(t *testing.T, port int) (*GenericStore[Data], *GenericStore[FkData], error) {
 	t.Helper()
 
 	config := RepositoryConfig{
@@ -57,19 +64,29 @@ func setup(t *testing.T, port int) (*GenericStore[Data], error) {
 	}
 	r := MustNewRepository(config)
 	if err := r.Start(context.Background()); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	store := NewGenericStore[Data](r)
 	if err := store.AutoMigrate(context.Background()); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return store, nil
+	fkStore := NewGenericStore[FkData](r)
+	if err := fkStore.AutoMigrate(context.Background()); err != nil {
+		return nil, nil, err
+	}
+
+	return store, fkStore, nil
 }
 
 func cleanup(t *testing.T, store *GenericStore[Data]) {
 	t.Helper()
+
+	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`fk_data`").Error; err != nil {
+		t.Logf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
 
 	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`data`").Error; err != nil {
 		t.Logf("failed to cleanup data: %v\n", err)
@@ -124,6 +141,7 @@ type GenericDataTestSuite struct {
 	initData  []Data
 	container *mysql.MySQLContainer
 	store     *GenericStore[Data]
+	fkStore   *GenericStore[FkData]
 }
 
 func (s *GenericDataTestSuite) SetupSuite() {
@@ -150,7 +168,7 @@ func (s *GenericDataTestSuite) SetupSuite() {
 	s.container = mysqlContainer
 	s.Require().NotNil(s.container)
 
-	store, err := setup(t, port.Int())
+	store, fkStore, err := setup(t, port.Int())
 	s.Require().NoError(err)
 	s.store = store
 	s.Require().NotNil(s.store)
@@ -160,6 +178,11 @@ func (s *GenericDataTestSuite) SetupSuite() {
 		t.Errorf("failed to set time zone: %v", err)
 		return
 	}
+
+	s.fkStore = fkStore
+	s.Require().NotNil(s.fkStore)
+	s.Require().NotNil(s.fkStore.Repository)
+	s.Require().NotNil(s.fkStore.db)
 }
 
 func (s *GenericDataTestSuite) TearDownSuite() {
@@ -176,7 +199,22 @@ func (s *GenericDataTestSuite) SetupTest() {
 	t := s.T()
 	s.Require().NoError(s.store.AutoMigrate(context.Background()))
 
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.fkStore.db.Exec("TRUNCATE TABLE `test`.`fk_data`").Error; err != nil {
+		t.Errorf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
+
 	if err := s.store.db.Exec("TRUNCATE TABLE `test`.`data`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
@@ -192,7 +230,23 @@ func (s *GenericDataTestSuite) SetupTest() {
 
 func (s *GenericDataTestSuite) TearDownTest() {
 	t := s.T()
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.fkStore.db.Exec("TRUNCATE TABLE `test`.`fk_data`").Error; err != nil {
+		t.Errorf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
+
 	if err := s.store.db.Exec("TRUNCATE TABLE `test`.`data`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
@@ -210,14 +264,14 @@ func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
 
 func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
 	t := s.T()
-	s.store.db.Exec("DROP TABLE IF EXISTS `test`.`data`")
+	s.fkStore.db.Exec("DROP TABLE IF EXISTS `test`.`fk_data`")
 	t.Run("Ping", func(t *testing.T) {
-		if err := s.store.Ping(context.Background()); err == nil {
+		if err := s.fkStore.Ping(context.Background()); err == nil {
 			t.Error("expected error")
 		}
 	})
 
-	s.Require().NoError(s.store.AutoMigrate(context.Background()))
+	s.Require().NoError(s.fkStore.AutoMigrate(context.Background()))
 }
 
 func (s *GenericDataTestSuite) TestGenericStore_Create() {
@@ -306,6 +360,42 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("store.Create() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
+	t := s.T()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	tests := []struct {
+		name    string
+		input   *FkData
+		want    *FkData
+		wantErr bool
+	}{
+		{
+			name: "error, no fk data",
+			input: &FkData{
+				Model: gorm.Model{
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				DataRefer: 0,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.fkStore.Create(context.Background(), nil, tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fkStore.Create() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("fkStore.Create() = %v, want %v", got, tt.want)
 			}
 		})
 	}
