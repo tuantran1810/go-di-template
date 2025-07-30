@@ -4,28 +4,32 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 )
 
 const DefaultLimit = 100
 
-type GenericStore[T any] struct {
+type GenericStore[T, E any] struct {
 	*Repository
+	transformer *entities.ExtendedDataTransformer[T, E]
 }
 
-func NewGenericStore[T any](repository *Repository) *GenericStore[T] {
-	return &GenericStore[T]{Repository: repository}
+func NewGenericStore[T, E any](
+	repository *Repository,
+	transformer *entities.ExtendedDataTransformer[T, E],
+) *GenericStore[T, E] {
+	return &GenericStore[T, E]{
+		Repository:  repository,
+		transformer: transformer,
+	}
 }
 
-func (s *GenericStore[T]) Ping(ctx context.Context) error {
+func (s *GenericStore[T, E]) Ping(ctx context.Context) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
 	var entity T
-	dbtx := s.GetTransaction(nil).WithContext(timeoutCtx)
+	dbtx := s.GetTransaction(nil).WithContext(ctx)
 	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
 		return GenerateError("failed to ping database", err)
 	}
@@ -33,147 +37,148 @@ func (s *GenericStore[T]) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *GenericStore[T]) Create(
-	ctx context.Context,
-	tx models.Transaction,
-	entity *T,
-) (*T, error) {
-	if entity == nil {
-		return nil, fmt.Errorf("%w - input entity is nil", models.ErrInvalid)
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
-	if err := dbtx.Create(entity).Error; err != nil {
-		return nil, GenerateError("failed to create entity", err)
-	}
-
-	return entity, nil
-}
-
-func (s *GenericStore[T]) CreateMany(
-	ctx context.Context,
-	tx models.Transaction,
-	entities []T,
-) ([]T, error) {
-	if len(entities) == 0 {
-		return nil, fmt.Errorf("%w - input entities is empty", models.ErrInvalid)
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
-	if err := dbtx.Create(entities).Error; err != nil {
-		return nil, GenerateError("failed to create entities", err)
-	}
-
-	return entities, nil
-}
-
-func (s *GenericStore[T]) Get(
-	ctx context.Context,
-	tx models.Transaction,
-	id uint,
-) (*T, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+func (s *GenericStore[T, E]) AutoMigrate(ctx context.Context) error {
 	var entity T
-	if err := dbtx.First(&entity, id).Error; err != nil {
-		return nil, GenerateError("failed to get entity", err)
-	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	return &entity, nil
+	return s.db.WithContext(ctx).AutoMigrate(&entity)
 }
 
-func (s *GenericStore[T]) GetMany(
+func (s *GenericStore[T, E]) Create(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
+	entity *E,
+) (*E, error) {
+	if entity == nil {
+		return nil, fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	data, err := s.transformer.FromEntity(entity)
+	if err != nil {
+		return nil, err
+	}
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
+	if err := dbtx.Create(data).Error; err != nil {
+		return nil, GenerateError("failed to create data", err)
+	}
+
+	return s.transformer.ToEntity(data)
+}
+
+func (s *GenericStore[T, E]) CreateMany(
+	ctx context.Context,
+	tx entities.Transaction,
+	entityArray []E,
+) ([]E, error) {
+	if len(entityArray) == 0 {
+		return nil, fmt.Errorf("%w - input entities is empty", entities.ErrInvalid)
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	dataArray, err := s.transformer.FromEntityArray(entityArray)
+	if err != nil {
+		return nil, err
+	}
+
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
+	if err := dbtx.Create(dataArray).Error; err != nil {
+		return nil, GenerateError("failed to create data records", err)
+	}
+
+	return s.transformer.ToEntityArray(dataArray)
+}
+
+func (s *GenericStore[T, E]) Get(
+	ctx context.Context,
+	tx entities.Transaction,
+	id uint,
+) (*E, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
+	var data T
+	if err := dbtx.First(&data, id).Error; err != nil {
+		return nil, GenerateError("failed to get data", err)
+	}
+
+	return s.transformer.ToEntity(&data)
+}
+
+func (s *GenericStore[T, E]) GetMany(
+	ctx context.Context,
+	tx entities.Transaction,
 	ids []uint,
-) ([]*T, error) {
+) ([]E, error) {
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("%w - input ids is empty", models.ErrInvalid)
+		return nil, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
-	var entities []*T
-	if err := dbtx.Find(&entities, ids).Error; err != nil {
-		return nil, GenerateError("failed to get entities", err)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
+	var dataArray []T
+	if err := dbtx.Find(&dataArray, ids).Error; err != nil {
+		return nil, GenerateError("failed to get records", err)
 	}
 
-	return entities, nil
+	return s.transformer.ToEntityArray(dataArray)
 }
 
-func (s *GenericStore[T]) GetByCriterias(
+func (s *GenericStore[T, E]) GetByCriterias(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
 	fields []string,
 	criterias map[string]any,
 	orderBys []string,
-) (*T, error) {
+) (*E, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	var entity T
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+	var data T
+	dbtx := s.
+		GetTransaction(tx).
+		WithContext(ctx)
 	if len(fields) > 0 {
 		dbtx = dbtx.Select(fields)
 	}
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
+		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
 	}
 
-	if err := dbtx.First(&entity).Error; err != nil {
-		return nil, GenerateError("failed to get entity", err)
+	if err := dbtx.First(&data).Error; err != nil {
+		return nil, GenerateError("failed to get data", err)
 	}
 
-	return &entity, nil
+	return s.transformer.ToEntity(&data)
 }
 
-func (s *GenericStore[T]) GetManyByCriterias(
+func (s *GenericStore[T, E]) GetManyByCriterias(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
 	fields []string,
 	criterias map[string]any,
 	orderBys []string,
 	offset int,
 	limit int,
-) ([]*T, error) {
+) ([]E, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
+		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
@@ -182,122 +187,117 @@ func (s *GenericStore[T]) GetManyByCriterias(
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
-	var entities []*T
+	var dataArray []T
 	if err := dbtx.
 		Offset(offset).
 		Limit(limit).
 		Select(fields).
-		Find(&entities).
+		Find(&dataArray).
 		Error; err != nil {
-		return nil, GenerateError("failed to get entity", err)
+		return nil, GenerateError("failed to get data records", err)
 	}
 
-	return entities, nil
+	return s.transformer.ToEntityArray(dataArray)
 }
 
-func (s *GenericStore[T]) Count(
+func (s *GenericStore[T, E]) Count(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
 	criterias map[string]any,
 ) (int64, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
+		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
 	}
 
-	var entity T
+	var data T
 	var cnt int64
-	if err := dbtx.Model(&entity).Count(&cnt).Error; err != nil {
+	if err := dbtx.Model(&data).Count(&cnt).Error; err != nil {
 		return 0, GenerateError("failed to count", err)
 	}
 
 	return cnt, nil
 }
 
-func (s *GenericStore[T]) Update(
+func (s *GenericStore[T, E]) Update(
 	ctx context.Context,
-	tx models.Transaction,
-	entity *T,
+	tx entities.Transaction,
+	entity *E,
 ) error {
 	if entity == nil {
-		return fmt.Errorf("%w - input entity is nil", models.ErrInvalid)
+		return fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
+	data, err := s.transformer.FromEntity(entity)
+	if err != nil {
+		return err
+	}
 
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
-	dbtx = dbtx.Updates(entity)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
+	dbtx = dbtx.Updates(data)
 	if err := dbtx.Error; err != nil {
-		return GenerateError("failed to update entity", err)
+		return GenerateError("failed to update data", err)
 	}
 	if dbtx.RowsAffected == 0 {
-		return fmt.Errorf("%w - no rows affected", models.ErrNotFound)
+		return fmt.Errorf("%w - no rows affected", entities.ErrNotFound)
 	}
 
 	return nil
 }
 
-func (s *GenericStore[T]) Delete(
+func (s *GenericStore[T, E]) Delete(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
 	permanent bool,
 	id uint,
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
 
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {
 		dbtx = dbtx.Unscoped()
 	}
 
-	var entity T
+	var data T
 	if err := dbtx.
-		Model(&entity).
+		Model(&data).
 		Delete("id = ?", id).Error; err != nil {
-		return GenerateError("failed to delete entity", err)
+		return GenerateError("failed to delete data", err)
 	}
 
 	return nil
 }
 
-func (s *GenericStore[T]) DeleteMany(
+func (s *GenericStore[T, E]) DeleteMany(
 	ctx context.Context,
-	tx models.Transaction,
+	tx entities.Transaction,
 	permanent bool,
 	ids []uint,
 ) (int64, error) {
 	if len(ids) == 0 {
-		return 0, fmt.Errorf("%w - input ids is empty", models.ErrInvalid)
+		return 0, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
 
-	dbtx := s.GetTransaction(tx).WithContext(timeoutCtx)
+	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {
 		dbtx = dbtx.Unscoped()
 	}
 
-	var entity T
-	dbtx = dbtx.Model(&entity).Delete("id in (?)", ids)
+	var data T
+	dbtx = dbtx.Model(&data).Delete("id in (?)", ids)
 	if err := dbtx.Error; err != nil {
-		return 0, GenerateError("failed to delete entities", err)
+		return 0, GenerateError("failed to delete data", err)
 	}
 
 	return dbtx.RowsAffected, nil

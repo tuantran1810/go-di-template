@@ -9,12 +9,10 @@ import (
 	"time"
 
 	goMysql "github.com/go-sql-driver/mysql"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
-
-const defaultTimeout = 20 * time.Second
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -59,18 +57,18 @@ func getEntityError(err error) error {
 	}
 
 	if isCanceledError(err) {
-		return models.ErrCanceled
+		return entities.ErrCanceled
 	}
 
 	if isInvalidInputError(err) {
-		return models.ErrInvalid
+		return entities.ErrInvalid
 	}
 
 	if isNotFoundError(err) {
-		return models.ErrNotFound
+		return entities.ErrNotFound
 	}
 
-	return models.ErrDatabase
+	return entities.ErrDatabase
 }
 
 func GenerateError(errStr string, err error) error {
@@ -86,10 +84,10 @@ func handleTransactionError(err error) error {
 		return nil
 	}
 
-	eligibleErr := errors.Is(err, models.ErrCanceled) ||
-		errors.Is(err, models.ErrInvalid) ||
-		errors.Is(err, models.ErrNotFound) ||
-		errors.Is(err, models.ErrDatabase)
+	eligibleErr := errors.Is(err, entities.ErrCanceled) ||
+		errors.Is(err, entities.ErrInvalid) ||
+		errors.Is(err, entities.ErrNotFound) ||
+		errors.Is(err, entities.ErrDatabase)
 	if eligibleErr {
 		return err
 	}
@@ -172,12 +170,12 @@ func (r *Repository) Start(ctx context.Context) error {
 		&gorm.Config{},
 	)
 	if err != nil {
-		return fmt.Errorf("%w - failed to open database: %w", models.ErrDatabase, err)
+		return fmt.Errorf("%w - failed to open database: %w", entities.ErrDatabase, err)
 	}
 
 	dbInstance, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("%w - failed to get database instance: %w", models.ErrDatabase, err)
+		return fmt.Errorf("%w - failed to get database instance: %w", entities.ErrDatabase, err)
 	}
 
 	dbInstance.SetMaxOpenConns(int(r.RepositoryConfig.MaxOpenConns))
@@ -185,7 +183,7 @@ func (r *Repository) Start(ctx context.Context) error {
 	dbInstance.SetConnMaxLifetime(time.Duration(r.RepositoryConfig.ConnMaxLifeTimeSeconds) * time.Second)
 
 	if err := dbInstance.Ping(); err != nil {
-		return fmt.Errorf("%w - failed to ping database: %w", models.ErrDatabase, err)
+		return fmt.Errorf("%w - failed to ping database: %w", entities.ErrDatabase, err)
 	}
 
 	r.db = db
@@ -195,21 +193,18 @@ func (r *Repository) Start(ctx context.Context) error {
 func (r *Repository) Stop(_ context.Context) error {
 	db, err := r.db.DB()
 	if err != nil {
-		return fmt.Errorf("%w - failed to get database connection: %w", models.ErrDatabase, err)
+		return fmt.Errorf("%w - failed to get database connection: %w", entities.ErrDatabase, err)
 	}
 
 	if err := db.Close(); err != nil {
-		return fmt.Errorf("%w - failed to close database connection: %w", models.ErrDatabase, err)
+		return fmt.Errorf("%w - failed to close database connection: %w", entities.ErrDatabase, err)
 	}
 
 	return nil
 }
 
 func (r *Repository) Check(ctx context.Context) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	if err := r.db.WithContext(timeoutCtx).Exec("SELECT 1").Error; err != nil {
+	if err := r.db.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
 		return GenerateError("failed to ping database", err)
 	}
 
@@ -220,7 +215,7 @@ func (r *Repository) DB() *gorm.DB {
 	return r.db
 }
 
-func (r *Repository) GetTransaction(tx models.Transaction) *gorm.DB {
+func (r *Repository) GetTransaction(tx entities.Transaction) *gorm.DB {
 	if tx == nil {
 		return r.db
 	}
@@ -233,20 +228,17 @@ func (r *Repository) GetTransaction(tx models.Transaction) *gorm.DB {
 	return txImpl.(*gorm.DB) //nolint: forcetypeassert
 }
 
-func (r *Repository) RunTx(ctx context.Context, data any, funcs ...models.DBTxHandleFunc) (any, error) {
+func (r *Repository) RunTx(ctx context.Context, data any, funcs ...entities.DBTxHandleFunc) (any, error) {
 	if len(funcs) == 0 {
-		return data, fmt.Errorf("%w - input no handler function", models.ErrInternal)
+		return data, fmt.Errorf("%w - input no handler function", entities.ErrInternal)
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	err := r.db.WithContext(timeoutCtx).Transaction(func(tx *gorm.DB) error {
-		txKeeper := models.NewGormTransaction(tx)
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txKeeper := entities.NewGormTransaction(tx)
 
 		for _, f := range funcs {
 			if f != nil {
-				outData, cont, ferr := f(timeoutCtx, txKeeper, data)
+				outData, cont, ferr := f(ctx, txKeeper, data)
 				data = outData
 				if ferr != nil {
 					return ferr

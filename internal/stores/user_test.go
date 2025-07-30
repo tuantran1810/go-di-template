@@ -12,35 +12,28 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	mysqlModule "github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
-	"gorm.io/gorm"
 )
 
-func getUserTestData(t *testing.T) []models.User {
+func getUserTestData(t *testing.T) []entities.User {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
-	return []models.User{
+	return []entities.User{
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			Username: "user1",
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "user1",
 		},
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			Username: "user2",
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "user2",
 		},
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			Username: "user3",
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "user3",
 		},
 	}
 }
@@ -89,8 +82,9 @@ func setup(t *testing.T, port int) (*UserStore, error) {
 		return nil, err
 	}
 
+	transformer := entities.NewExtendedDataTransformer(&userTransformer{})
 	return &UserStore{
-		GenericStore: mysql.NewGenericStore[models.User](r),
+		GenericStore: mysql.NewGenericStore(r, transformer),
 	}, nil
 }
 
@@ -180,19 +174,17 @@ func (s *UserStoreTestSuite) TestUserStore_FindByUsername() {
 	tests := []struct {
 		name     string
 		username string
-		want     *models.User
+		want     *entities.User
 		wantErr  bool
 	}{
 		{
 			name:     "user1",
 			username: "user1",
-			want: &models.User{
-				Model: gorm.Model{
-					ID:        1,
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				Username: "user1",
+			want: &entities.User{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				Username:  "user1",
 			},
 			wantErr: false,
 		},

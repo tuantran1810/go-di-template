@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
-	"time"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"github.com/tuantran1810/go-di-template/libs/utils"
 	"gorm.io/gorm"
 )
@@ -143,22 +142,22 @@ func Test_getEntityError(t *testing.T) {
 		{
 			name: "canceled error",
 			err:  context.Canceled,
-			want: models.ErrCanceled,
+			want: entities.ErrCanceled,
 		},
 		{
 			name: "invalid error",
 			err:  gorm.ErrInvalidField,
-			want: models.ErrInvalid,
+			want: entities.ErrInvalid,
 		},
 		{
 			name: "not found error",
 			err:  gorm.ErrRecordNotFound,
-			want: models.ErrNotFound,
+			want: entities.ErrNotFound,
 		},
 		{
 			name: "unknown error",
 			err:  errors.New("error"),
-			want: models.ErrDatabase,
+			want: entities.ErrDatabase,
 		},
 	}
 	for _, tt := range tests {
@@ -202,8 +201,6 @@ func TestRepository_Start(t *testing.T) {
 		MaxIdleConns:           10,
 		ConnMaxLifeTimeSeconds: 1800,
 	}
-
-	time.Sleep(60 * time.Second)
 
 	t.Run("Start", func(t *testing.T) {
 		r := MustNewRepository(config)

@@ -14,7 +14,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +25,49 @@ type Data struct {
 	Value    string
 }
 
+type DataEntity struct {
+	ID        uint
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	UniqueID  string
+	Key       string
+	Value     string
+}
+
+type DataTransformer struct{}
+
+func (t *DataTransformer) ToEntity(data *Data) (*DataEntity, error) {
+	if data == nil {
+		return nil, fmt.Errorf("%w - input data is nil", entities.ErrInvalid)
+	}
+
+	return &DataEntity{
+		ID:        data.ID,
+		CreatedAt: data.CreatedAt,
+		UpdatedAt: data.UpdatedAt,
+		UniqueID:  data.UniqueID,
+		Key:       data.Key,
+		Value:     data.Value,
+	}, nil
+}
+
+func (t *DataTransformer) FromEntity(entity *DataEntity) (*Data, error) {
+	if entity == nil {
+		return nil, fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
+	}
+
+	return &Data{
+		Model: gorm.Model{
+			ID:        entity.ID,
+			CreatedAt: entity.CreatedAt,
+			UpdatedAt: entity.UpdatedAt,
+		},
+		UniqueID: entity.UniqueID,
+		Key:      entity.Key,
+		Value:    entity.Value,
+	}, nil
+}
+
 type FkData struct {
 	gorm.Model
 	DataRefer uint
@@ -32,7 +75,58 @@ type FkData struct {
 	Metadata  string
 }
 
-func setup(t *testing.T, port int) (*GenericStore[Data], *GenericStore[FkData], error) {
+type FkDataEntity struct {
+	ID        uint
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DataRefer uint
+	Data      DataEntity
+	Metadata  string
+}
+
+type FkDataTransformer struct{}
+
+func (t *FkDataTransformer) ToEntity(data *FkData) (*FkDataEntity, error) {
+	if data == nil {
+		return nil, fmt.Errorf("%w - input data is nil", entities.ErrInvalid)
+	}
+
+	var dataTransformer DataTransformer
+	tmp, err := dataTransformer.ToEntity(&data.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FkDataEntity{
+		ID:        data.ID,
+		CreatedAt: data.CreatedAt,
+		UpdatedAt: data.UpdatedAt,
+		DataRefer: data.DataRefer,
+		Data:      *tmp,
+		Metadata:  data.Metadata,
+	}, nil
+}
+
+func (t *FkDataTransformer) FromEntity(entity *FkDataEntity) (*FkData, error) {
+	if entity == nil {
+		return nil, fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
+	}
+
+	return &FkData{
+		Model: gorm.Model{
+			ID:        entity.ID,
+			CreatedAt: entity.CreatedAt,
+			UpdatedAt: entity.UpdatedAt,
+		},
+		DataRefer: entity.DataRefer,
+		Metadata:  entity.Metadata,
+	}, nil
+}
+
+type DataStore = GenericStore[Data, DataEntity]
+type FkDataStore = GenericStore[FkData, FkDataEntity]
+
+func setup(t *testing.T, port int) (*DataStore, *FkDataStore, error) {
 	t.Helper()
 
 	config := RepositoryConfig{
@@ -67,12 +161,14 @@ func setup(t *testing.T, port int) (*GenericStore[Data], *GenericStore[FkData], 
 		return nil, nil, err
 	}
 
-	store := NewGenericStore[Data](r)
+	dataTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
+	store := NewGenericStore(r, dataTransformer)
 	if err := store.AutoMigrate(context.Background()); err != nil {
 		return nil, nil, err
 	}
 
-	fkStore := NewGenericStore[FkData](r)
+	fkDataTransformer := entities.NewExtendedDataTransformer(&FkDataTransformer{})
+	fkStore := NewGenericStore(r, fkDataTransformer)
 	if err := fkStore.AutoMigrate(context.Background()); err != nil {
 		return nil, nil, err
 	}
@@ -80,7 +176,7 @@ func setup(t *testing.T, port int) (*GenericStore[Data], *GenericStore[FkData], 
 	return store, fkStore, nil
 }
 
-func cleanup(t *testing.T, store *GenericStore[Data]) {
+func cleanup(t *testing.T, store *GenericStore[Data, DataEntity]) {
 	t.Helper()
 
 	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`fk_data`").Error; err != nil {
@@ -94,54 +190,47 @@ func cleanup(t *testing.T, store *GenericStore[Data]) {
 	}
 }
 
-func getTestData(t *testing.T) []Data {
+func getTestData(t *testing.T) []DataEntity {
 	t.Helper()
 
 	now := time.Now().UTC().Truncate(time.Second)
-	return []Data{
+	return []DataEntity{
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			UniqueID: "unique-id-1",
-			Key:      "key1",
-			Value:    "value1",
+			CreatedAt: now,
+			UpdatedAt: now,
+			UniqueID:  "unique-id-1",
+			Key:       "key1",
+			Value:     "value1",
 		},
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			UniqueID: "unique-id-2",
-			Key:      "key2",
-			Value:    "value2",
+			CreatedAt: now,
+			UpdatedAt: now,
+			UniqueID:  "unique-id-2",
+			Key:       "key2",
+			Value:     "value2",
 		},
 		{
-			Model: gorm.Model{
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			UniqueID: "unique-id-3",
-			Key:      "key3",
-			Value:    "value3",
+			CreatedAt: now,
+			UpdatedAt: now,
+			UniqueID:  "unique-id-3",
+			Key:       "key3",
+			Value:     "value3",
 		},
 	}
 }
 
-func createTestData(t *testing.T, store *GenericStore[Data]) ([]Data, error) {
+func createTestData(t *testing.T, store *DataStore) ([]DataEntity, error) {
 	t.Helper()
 	testData := getTestData(t)
-	_, err := store.CreateMany(context.Background(), nil, testData)
-	return testData, err
+	return store.CreateMany(context.Background(), nil, testData)
 }
 
 type GenericDataTestSuite struct {
 	suite.Suite
-	initData  []Data
+	initData  []DataEntity
 	container *mysql.MySQLContainer
-	store     *GenericStore[Data]
-	fkStore   *GenericStore[FkData]
+	store     *DataStore
+	fkStore   *FkDataStore
 }
 
 func (s *GenericDataTestSuite) SetupSuite() {
@@ -280,8 +369,8 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 
 	tests := []struct {
 		name    string
-		input   *Data
-		want    *Data
+		input   *DataEntity
+		want    *DataEntity
 		wantErr bool
 	}{
 		{
@@ -292,60 +381,50 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 		},
 		{
 			name: "no error, key 4",
-			input: &Data{
-				Model: gorm.Model{
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-4",
-				Key:      "key",
-				Value:    "value",
+			input: &DataEntity{
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-4",
+				Key:       "key",
+				Value:     "value",
 			},
-			want: &Data{
-				Model: gorm.Model{
-					ID:        4,
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-4",
-				Key:      "key",
-				Value:    "value",
+			want: &DataEntity{
+				ID:        4,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-4",
+				Key:       "key",
+				Value:     "value",
 			},
 			wantErr: false,
 		},
 		{
 			name: "no error, key 5",
-			input: &Data{
-				Model: gorm.Model{
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-5",
-				Key:      "key",
-				Value:    "value",
+			input: &DataEntity{
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-5",
+				Key:       "key",
+				Value:     "value",
 			},
-			want: &Data{
-				Model: gorm.Model{
-					ID:        5,
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-5",
-				Key:      "key",
-				Value:    "value",
+			want: &DataEntity{
+				ID:        5,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-5",
+				Key:       "key",
+				Value:     "value",
 			},
 			wantErr: false,
 		},
 		{
 			name: "error, conflicted",
-			input: &Data{
-				Model: gorm.Model{
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-5",
-				Key:      "key",
-				Value:    "value",
+			input: &DataEntity{
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-5",
+				Key:       "key",
+				Value:     "value",
 			},
 			want:    nil,
 			wantErr: true,
@@ -371,17 +450,15 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
 
 	tests := []struct {
 		name    string
-		input   *FkData
-		want    *FkData
+		input   *FkDataEntity
+		want    *FkDataEntity
 		wantErr bool
 	}{
 		{
 			name: "error, no fk data",
-			input: &FkData{
-				Model: gorm.Model{
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
+			input: &FkDataEntity{
+				CreatedAt: now,
+				UpdatedAt: now,
 				DataRefer: 0,
 			},
 			wantErr: true,
@@ -407,8 +484,8 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
 
 	tests := []struct {
 		name    string
-		input   []Data
-		want    []Data
+		input   []DataEntity
+		want    []DataEntity
 		wantErr bool
 	}{
 		{
@@ -419,70 +496,58 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
 		},
 		{
 			name: "no error, key 4-5",
-			input: []Data{
+			input: []DataEntity{
 				{
-					Model: gorm.Model{
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-4",
-					Key:      "key4",
-					Value:    "value4",
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-4",
+					Key:       "key4",
+					Value:     "value4",
 				},
 				{
-					Model: gorm.Model{
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-5",
-					Key:      "key5",
-					Value:    "value5",
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-5",
+					Key:       "key5",
+					Value:     "value5",
 				},
 			},
-			want: []Data{
+			want: []DataEntity{
 				{
-					Model: gorm.Model{
-						ID:        4,
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-4",
-					Key:      "key4",
-					Value:    "value4",
+					ID:        4,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-4",
+					Key:       "key4",
+					Value:     "value4",
 				},
 				{
-					Model: gorm.Model{
-						ID:        5,
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-5",
-					Key:      "key5",
-					Value:    "value5",
+					ID:        5,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-5",
+					Key:       "key5",
+					Value:     "value5",
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name: "error, conflicted",
-			input: []Data{
+			input: []DataEntity{
 				{
-					Model: gorm.Model{
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-2",
-					Key:      "key2",
-					Value:    "value2",
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-2",
+					Key:       "key2",
+					Value:     "value2",
 				},
 				{
-					Model: gorm.Model{
-						CreatedAt: now,
-						UpdatedAt: now,
-					},
-					UniqueID: "unique-id-3",
-					Key:      "key3",
-					Value:    "value3",
+					CreatedAt: now,
+					UpdatedAt: now,
+					UniqueID:  "unique-id-3",
+					Key:       "key3",
+					Value:     "value3",
 				},
 			},
 			want:    nil,
@@ -509,7 +574,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Get() {
 	tests := []struct {
 		name    string
 		id      uint
-		want    *Data
+		want    *DataEntity
 		wantErr bool
 	}{
 		{
@@ -551,31 +616,31 @@ func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
 	tests := []struct {
 		name    string
 		ids     []uint
-		want    []*Data
+		want    []DataEntity
 		wantErr bool
 	}{
 		{
 			name:    "key 1,2",
 			ids:     []uint{1, 2},
-			want:    []*Data{&s.initData[0], &s.initData[1]},
+			want:    []DataEntity{s.initData[0], s.initData[1]},
 			wantErr: false,
 		},
 		{
 			name:    "key 1,3",
 			ids:     []uint{1, 3},
-			want:    []*Data{&s.initData[0], &s.initData[2]},
+			want:    []DataEntity{s.initData[0], s.initData[2]},
 			wantErr: false,
 		},
 		{
 			name:    "key 1,10",
 			ids:     []uint{1, 10},
-			want:    []*Data{&s.initData[0]},
+			want:    []DataEntity{s.initData[0]},
 			wantErr: false,
 		},
 		{
 			name:    "not found",
 			ids:     []uint{10, 11},
-			want:    []*Data{},
+			want:    []DataEntity{},
 			wantErr: false,
 		},
 	}
@@ -601,7 +666,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 		criterias map[string]any
 		fields    []string
 		orderBys  []string
-		want      *Data
+		want      *DataEntity
 		wantErr   bool
 	}{
 		{
@@ -620,7 +685,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 			},
 			fields:   []string{"unique_id", "key"},
 			orderBys: []string{"id"},
-			want: &Data{
+			want: &DataEntity{
 				UniqueID: "unique-id-1",
 				Key:      "key1",
 			},
@@ -630,7 +695,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 			name:     "without criterias, limited fields, order by",
 			fields:   []string{"unique_id", "key"},
 			orderBys: []string{"id DESC"},
-			want: &Data{
+			want: &DataEntity{
 				UniqueID: "unique-id-3",
 				Key:      "key3",
 			},
@@ -655,7 +720,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 			orderBys: []string{
 				"id",
 			},
-			want: &Data{
+			want: &DataEntity{
 				UniqueID: "unique-id-1",
 				Key:      "key1",
 			},
@@ -680,14 +745,12 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
-	if _, err := s.store.Create(context.Background(), nil, &Data{
-		Model: gorm.Model{
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
-		UniqueID: "unique-id-4",
-		Key:      "key1",
-		Value:    "value2",
+	if _, err := s.store.Create(context.Background(), nil, &DataEntity{
+		CreatedAt: now,
+		UpdatedAt: now,
+		UniqueID:  "unique-id-4",
+		Key:       "key1",
+		Value:     "value2",
 	}); err != nil {
 		t.Errorf("failed to create data: %v", err)
 		return
@@ -700,7 +763,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 		orderBys  []string
 		offset    int
 		limit     int
-		want      []*Data
+		want      []DataEntity
 		wantErr   bool
 	}{
 		{
@@ -714,7 +777,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 			},
 			offset: 0,
 			limit:  10,
-			want: []*Data{
+			want: []DataEntity{
 				{
 					UniqueID: "unique-id-4",
 					Key:      "key1",
@@ -737,7 +800,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 			},
 			offset: 1,
 			limit:  10,
-			want: []*Data{
+			want: []DataEntity{
 				{
 					UniqueID: "unique-id-1",
 					Key:      "key1",
@@ -756,7 +819,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 			},
 			offset: 0,
 			limit:  1,
-			want: []*Data{
+			want: []DataEntity{
 				{
 					UniqueID: "unique-id-4",
 					Key:      "key1",
@@ -775,7 +838,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 			},
 			offset:  2,
 			limit:   10,
-			want:    []*Data{},
+			want:    []DataEntity{},
 			wantErr: false,
 		},
 	}
@@ -803,14 +866,12 @@ func (s *GenericDataTestSuite) TestGenericStore_Count() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
-	if _, err := s.store.Create(context.Background(), nil, &Data{
-		Model: gorm.Model{
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
-		UniqueID: "unique-id-4",
-		Key:      "key1",
-		Value:    "value2",
+	if _, err := s.store.Create(context.Background(), nil, &DataEntity{
+		CreatedAt: now,
+		UpdatedAt: now,
+		UniqueID:  "unique-id-4",
+		Key:       "key1",
+		Value:     "value2",
 	}); err != nil {
 		t.Errorf("failed to create data: %v", err)
 		return
@@ -872,34 +933,30 @@ func (s *GenericDataTestSuite) TestGenericStore_Update() {
 
 	tests := []struct {
 		name    string
-		data    *Data
+		data    *DataEntity
 		wantErr bool
 	}{
 		{
 			name: "key 1",
-			data: &Data{
-				Model: gorm.Model{
-					ID:        1,
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-1",
-				Key:      "key1_updated",
-				Value:    "value1_updated",
+			data: &DataEntity{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-1",
+				Key:       "key1_updated",
+				Value:     "value1_updated",
 			},
 			wantErr: false,
 		},
 		{
 			name: "not found",
-			data: &Data{
-				Model: gorm.Model{
-					ID:        100,
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				UniqueID: "unique-id-100",
-				Key:      "key100_updated",
-				Value:    "value100_updated",
+			data: &DataEntity{
+				ID:        100,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UniqueID:  "unique-id-100",
+				Key:       "key100_updated",
+				Value:     "value100_updated",
 			},
 			wantErr: true,
 		},
@@ -1027,25 +1084,23 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 	tests := []struct {
 		name      string
 		data      any
-		funcs     []models.DBTxHandleFunc
+		funcs     []entities.DBTxHandleFunc
 		want      any
 		wantCount int
 		wantErr   bool
 	}{
 		{
 			name: "no error",
-			data: make([]Data, 2),
-			funcs: []models.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-4",
-						Key:      "key4",
-						Value:    "value4",
+			data: make([]DataEntity, 2),
+			funcs: []entities.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-4",
+						Key:       "key4",
+						Value:     "value4",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1054,16 +1109,14 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					out[0] = *tmp
 					return out, true, nil
 				},
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-5",
-						Key:      "key5",
-						Value:    "value5",
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-5",
+						Key:       "key5",
+						Value:     "value5",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1073,26 +1126,22 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					return out, true, nil
 				},
 			},
-			want: []Data{
+			want: []DataEntity{
 				{
-					Model: gorm.Model{
-						ID:        4,
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					},
-					UniqueID: "unique-id-4",
-					Key:      "key4",
-					Value:    "value4",
+					ID:        4,
+					CreatedAt: time.Now().UTC().Truncate(time.Second),
+					UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					UniqueID:  "unique-id-4",
+					Key:       "key4",
+					Value:     "value4",
 				},
 				{
-					Model: gorm.Model{
-						ID:        5,
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					},
-					UniqueID: "unique-id-5",
-					Key:      "key5",
-					Value:    "value5",
+					ID:        5,
+					CreatedAt: time.Now().UTC().Truncate(time.Second),
+					UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					UniqueID:  "unique-id-5",
+					Key:       "key5",
+					Value:     "value5",
 				},
 			},
 			wantCount: 5,
@@ -1100,18 +1149,16 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 		},
 		{
 			name: "with error",
-			data: make([]Data, 2),
-			funcs: []models.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-6",
-						Key:      "key6",
-						Value:    "value6",
+			data: make([]DataEntity, 2),
+			funcs: []entities.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-6",
+						Key:       "key6",
+						Value:     "value6",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1120,16 +1167,14 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					out[0] = *tmp
 					return out, true, nil
 				},
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-7",
-						Key:      "key7",
-						Value:    "value7",
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-7",
+						Key:       "key7",
+						Value:     "value7",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1138,7 +1183,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					out[1] = *tmp
 					return out, true, nil
 				},
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
 					return nil, false, errors.New("fake error")
 				},
 			},
@@ -1148,18 +1193,16 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 		},
 		{
 			name: "stop in the middle",
-			data: make([]Data, 2),
-			funcs: []models.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-6",
-						Key:      "key6",
-						Value:    "value6",
+			data: make([]DataEntity, 2),
+			funcs: []entities.DBTxHandleFunc{
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-6",
+						Key:       "key6",
+						Value:     "value6",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1168,16 +1211,14 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					out[0] = *tmp
 					return out, false, nil
 				},
-				func(ctx context.Context, txKeeper models.Transaction, data any) (any, bool, error) {
-					out := data.([]Data)
-					item := Data{
-						Model: gorm.Model{
-							CreatedAt: time.Now().UTC().Truncate(time.Second),
-							UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						},
-						UniqueID: "unique-id-7",
-						Key:      "key7",
-						Value:    "value7",
+				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
+					out := data.([]DataEntity)
+					item := DataEntity{
+						CreatedAt: time.Now().UTC().Truncate(time.Second),
+						UpdatedAt: time.Now().UTC().Truncate(time.Second),
+						UniqueID:  "unique-id-7",
+						Key:       "key7",
+						Value:     "value7",
 					}
 					tmp, err := s.store.Create(ctx, txKeeper, &item)
 					if err != nil {
@@ -1187,16 +1228,14 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 					return out, true, nil
 				},
 			},
-			want: []Data{
+			want: []DataEntity{
 				{
-					Model: gorm.Model{
-						ID:        8,
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					},
-					UniqueID: "unique-id-6",
-					Key:      "key6",
-					Value:    "value6",
+					ID:        8,
+					CreatedAt: time.Now().UTC().Truncate(time.Second),
+					UpdatedAt: time.Now().UTC().Truncate(time.Second),
+					UniqueID:  "unique-id-6",
+					Key:       "key6",
+					Value:     "value6",
 				},
 				{},
 			},

@@ -12,7 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"gorm.io/gorm"
 )
 
@@ -145,22 +145,22 @@ func Test_getEntityError(t *testing.T) {
 		{
 			name: "canceled error",
 			err:  context.Canceled,
-			want: models.ErrCanceled,
+			want: entities.ErrCanceled,
 		},
 		{
 			name: "invalid error",
 			err:  gorm.ErrInvalidField,
-			want: models.ErrInvalid,
+			want: entities.ErrInvalid,
 		},
 		{
 			name: "not found error",
 			err:  gorm.ErrRecordNotFound,
-			want: models.ErrNotFound,
+			want: entities.ErrNotFound,
 		},
 		{
 			name: "unknown error",
 			err:  errors.New("error"),
-			want: models.ErrDatabase,
+			want: entities.ErrDatabase,
 		},
 	}
 	for _, tt := range tests {
