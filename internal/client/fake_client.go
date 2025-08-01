@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"github.com/tuantran1810/go-di-template/libs/logger"
 )
 
@@ -32,7 +32,7 @@ func (c *FakeClient) Stop(_ context.Context) error {
 	return nil
 }
 
-func (c *FakeClient) Send(ctx context.Context, msg *models.Message) error {
+func (c *FakeClient) Send(ctx context.Context, msg *entities.Message) error {
 	latencyCtx, cancel := context.WithTimeout(
 		context.Background(),
 		time.Millisecond*time.Duration(c.FakeClientConfig.LatencyMs),

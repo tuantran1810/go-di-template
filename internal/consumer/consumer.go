@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit"
-	"github.com/tuantran1810/go-di-template/internal/models"
+	"github.com/tuantran1810/go-di-template/internal/entities"
 	"github.com/tuantran1810/go-di-template/libs/logger"
 )
 
 var log = logger.MustNamedLogger("consumer")
 
 type Processor interface {
-	Process(ctx context.Context, msg *models.Message) error
+	Process(ctx context.Context, msg *entities.Message) error
 }
 
 type FakeConsumerConfig struct {
@@ -38,7 +38,7 @@ func (c *FakeConsumer) generateContentWorker(ctx context.Context) {
 		select {
 		case <-timer.C:
 			log.Infof("message generated")
-			msg := &models.Message{
+			msg := &entities.Message{
 				Key:   gofakeit.UUID(),
 				Value: gofakeit.Sentence(20),
 			}
