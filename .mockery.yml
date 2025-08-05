@@ -1,0 +1,10 @@
+packages:
+    github.com/tuantran1810/go-di-template/internal/usecases:
+        config:
+            dir: "mocks/usecases"
+            filename: "mock_{{.InterfaceName}}.go"
+        interfaces:
+            IUserStore:
+                config:
+            IUserAttributeStore:
+                config:

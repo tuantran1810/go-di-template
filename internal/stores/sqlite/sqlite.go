@@ -163,9 +163,9 @@ func (r *Repository) GetTransaction(tx entities.Transaction) *gorm.DB {
 	return txImpl.(*gorm.DB) //nolint: forcetypeassert
 }
 
-func (r *Repository) RunTx(ctx context.Context, data any, funcs ...entities.DBTxHandleFunc) (any, error) {
+func (r *Repository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
 	if len(funcs) == 0 {
-		return data, fmt.Errorf("%w - input no handler function", entities.ErrInternal)
+		return fmt.Errorf("%w - input no handler function", entities.ErrInternal)
 	}
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -173,14 +173,9 @@ func (r *Repository) RunTx(ctx context.Context, data any, funcs ...entities.DBTx
 
 		for _, f := range funcs {
 			if f != nil {
-				outData, cont, ferr := f(ctx, txKeeper, data)
-				data = outData
+				ferr := f(ctx, txKeeper)
 				if ferr != nil {
 					return ferr
-				}
-
-				if !cont {
-					break
 				}
 			}
 		}
@@ -188,5 +183,5 @@ func (r *Repository) RunTx(ctx context.Context, data any, funcs ...entities.DBTx
 		return nil
 	})
 
-	return data, handleTransactionError(err)
+	return handleTransactionError(err)
 }

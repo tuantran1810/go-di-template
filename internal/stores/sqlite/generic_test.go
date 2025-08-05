@@ -3,7 +3,6 @@ package stores
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -977,9 +976,48 @@ func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
 func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 	t := s.T()
 
+	createUniqueId4 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {
+		return s.store.Create(ctx, txKeeper, &DataEntity{
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+			UpdatedAt: time.Now().UTC().Truncate(time.Second),
+			UniqueID:  "unique-id-4",
+			Key:       "key4",
+			Value:     "value4",
+		})
+	}
+
+	createUniqueId5 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {
+		return s.store.Create(ctx, txKeeper, &DataEntity{
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+			UpdatedAt: time.Now().UTC().Truncate(time.Second),
+			UniqueID:  "unique-id-5",
+			Key:       "key5",
+			Value:     "value5",
+		})
+	}
+
+	createUniqueId6 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {
+		return s.store.Create(ctx, txKeeper, &DataEntity{
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+			UpdatedAt: time.Now().UTC().Truncate(time.Second),
+			UniqueID:  "unique-id-6",
+			Key:       "key6",
+			Value:     "value6",
+		})
+	}
+
+	createUniqueId7 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {
+		return s.store.Create(ctx, txKeeper, &DataEntity{
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+			UpdatedAt: time.Now().UTC().Truncate(time.Second),
+			UniqueID:  "unique-id-7",
+			Key:       "key7",
+			Value:     "value7",
+		})
+	}
+
 	tests := []struct {
 		name      string
-		data      any
 		funcs     []entities.DBTxHandleFunc
 		want      any
 		wantCount int
@@ -987,57 +1025,15 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 	}{
 		{
 			name: "no error",
-			data: make([]DataEntity, 2),
 			funcs: []entities.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-4",
-						Key:       "key4",
-						Value:     "value4",
+				func(ctx context.Context, txKeeper entities.Transaction) error {
+					if _, err := createUniqueId4(ctx, txKeeper); err != nil {
+						return err
 					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
+					if _, err := createUniqueId5(ctx, txKeeper); err != nil {
+						return err
 					}
-					out[0] = *tmp
-					return out, true, nil
-				},
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-5",
-						Key:       "key5",
-						Value:     "value5",
-					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
-					}
-					out[1] = *tmp
-					return out, true, nil
-				},
-			},
-			want: []DataEntity{
-				{
-					ID:        4,
-					CreatedAt: time.Now().UTC().Truncate(time.Second),
-					UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					UniqueID:  "unique-id-4",
-					Key:       "key4",
-					Value:     "value4",
-				},
-				{
-					ID:        5,
-					CreatedAt: time.Now().UTC().Truncate(time.Second),
-					UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					UniqueID:  "unique-id-5",
-					Key:       "key5",
-					Value:     "value5",
+					return nil
 				},
 			},
 			wantCount: 5,
@@ -1045,113 +1041,34 @@ func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
 		},
 		{
 			name: "with error",
-			data: make([]DataEntity, 2),
 			funcs: []entities.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-6",
-						Key:       "key6",
-						Value:     "value6",
+				func(ctx context.Context, txKeeper entities.Transaction) error {
+					if _, err := createUniqueId6(ctx, txKeeper); err != nil {
+						return err
 					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
+					if _, err := createUniqueId7(ctx, txKeeper); err != nil {
+						return err
 					}
-					out[0] = *tmp
-					return out, true, nil
+					return nil
 				},
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-7",
-						Key:       "key7",
-						Value:     "value7",
-					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
-					}
-					out[1] = *tmp
-					return out, true, nil
-				},
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					return nil, false, errors.New("fake error")
+				func(ctx context.Context, txKeeper entities.Transaction) error {
+					return fmt.Errorf("fake error")
 				},
 			},
 			want:      nil,
 			wantCount: 5,
 			wantErr:   true,
 		},
-		{
-			name: "stop in the middle",
-			data: make([]DataEntity, 2),
-			funcs: []entities.DBTxHandleFunc{
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-6",
-						Key:       "key6",
-						Value:     "value6",
-					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
-					}
-					out[0] = *tmp
-					return out, false, nil
-				},
-				func(ctx context.Context, txKeeper entities.Transaction, data any) (any, bool, error) {
-					out := data.([]DataEntity)
-					item := DataEntity{
-						CreatedAt: time.Now().UTC().Truncate(time.Second),
-						UpdatedAt: time.Now().UTC().Truncate(time.Second),
-						UniqueID:  "unique-id-7",
-						Key:       "key7",
-						Value:     "value7",
-					}
-					tmp, err := s.store.Create(ctx, txKeeper, &item)
-					if err != nil {
-						return nil, false, err
-					}
-					out[1] = *tmp
-					return out, true, nil
-				},
-			},
-			want: []DataEntity{
-				{
-					ID:        6,
-					CreatedAt: time.Now().UTC().Truncate(time.Second),
-					UpdatedAt: time.Now().UTC().Truncate(time.Second),
-					UniqueID:  "unique-id-6",
-					Key:       "key6",
-					Value:     "value6",
-				},
-				{},
-			},
-			wantCount: 6,
-			wantErr:   false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := s.store.RunTx(
+			err := s.store.RunTx(
 				context.Background(),
-				tt.data,
 				tt.funcs...,
 			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("store.RunTx() error = %v, wantErr %v", err, tt.wantErr)
 				return
-			}
-			if !reflect.DeepEqual(out, tt.want) {
-				t.Errorf("store.RunTx() = %v, want %v", out, tt.want)
 			}
 			var cnt int64
 			if err := s.store.DB().Model(&Data{}).Count(&cnt).Error; err != nil {
