@@ -104,7 +104,7 @@ type Repository struct {
 }
 
 func NewRepository(cfg RepositoryConfig) (*Repository, error) {
-	db, err := gorm.Open(sqlite.Open(cfg.DatabasePath), &gorm.Config{}) //nolint: varnamelen
+	db, err := gorm.Open(sqlite.Open(cfg.DatabasePath), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("%w - failed to open database: %w", entities.ErrDatabase, err)
 	}
@@ -160,7 +160,7 @@ func (r *Repository) GetTransaction(tx entities.Transaction) *gorm.DB {
 		return r.db
 	}
 
-	return txImpl.(*gorm.DB) //nolint: forcetypeassert
+	return txImpl.(*gorm.DB)
 }
 
 func (r *Repository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {

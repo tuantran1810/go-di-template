@@ -1,22 +1,18 @@
 package config
 
-type SqliteConfig struct {
-	DatabasePath string `env:"DATABASE_PATH" envDefault:":memory:"`
-}
+import "time"
 
-type FakeConsumerConfig struct {
-	PerMs uint `env:"PER_MS" envDefault:"1000"`
-}
-
-type FakeClientConfig struct {
-	LatencyMs uint `env:"LATENCY_MS" envDefault:"1000"`
+type MysqlConfig struct {
+	Username string `env:"USERNAME" envDefault:"root"`
+	Password string `env:"PASSWORD" envDefault:"secret"`
+	Protocol string `env:"PROTOCOL" envDefault:"tcp"`
+	Address  string `env:"ADDRESS" envDefault:"127.0.0.1:3306"`
+	Database string `env:"DATABASE" envDefault:"test"`
 }
 
 type ServerConfig struct {
-	HttpPort int `env:"HTTP_PORT" envDefault:"8080"`
-	GrpcPort int `env:"GRPC_PORT" envDefault:"9090"`
-
-	Sqlite       SqliteConfig       `envPrefix:"SQLITE_CONFIG_"`
-	FakeConsumer FakeConsumerConfig `envPrefix:"FAKE_CONSUMER_CONFIG_"`
-	FakeClient   FakeClientConfig   `envPrefix:"FAKE_CLIENT_CONFIG_"`
+	HttpPort              int           `env:"HTTP_PORT" envDefault:"8080"`
+	HttpServerReadTimeout time.Duration `env:"HTTP_SERVER_READ_TIMEOUT" envDefault:"5s"`
+	GrpcPort              int           `env:"GRPC_PORT" envDefault:"9090"`
+	MySql                 MysqlConfig   `envPrefix:"MYSQL_CONFIG_"`
 }

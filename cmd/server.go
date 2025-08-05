@@ -1,27 +1,37 @@
 package cmd
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/tuantran1810/go-di-template/config"
-	"github.com/tuantran1810/go-di-template/internal/client"
-	"github.com/tuantran1810/go-di-template/internal/consumer"
-	"github.com/tuantran1810/go-di-template/internal/processor"
+	"github.com/tuantran1810/go-di-template/internal/controllers"
 	"github.com/tuantran1810/go-di-template/internal/stores"
+	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/usecases"
+	"github.com/tuantran1810/go-di-template/libs/middlewares"
+	pb "github.com/tuantran1810/go-di-template/pkg/go_di_template/v1"
 	"go.uber.org/fx"
+	"google.golang.org/grpc"
 )
 
 var (
-	_ processor.DataRepository = &stores.Repository{}
-	_ processor.DataWriter     = &stores.MessageStore{}
-	_ processor.Sender         = &client.FakeClient{}
-	_ consumer.Processor       = &processor.Processor{}
+	_ usecases.IRepository         = &mysql.Repository{}
+	_ usecases.IUserStore          = &stores.UserStore{}
+	_ usecases.IUserAttributeStore = &stores.UserAttributeStore{}
+	_ controllers.IUserUsecase     = &usecases.Users{}
 )
 
 func newRepository(
 	appLifecycle fx.Lifecycle,
-	config stores.RepositoryConfig,
-) *stores.Repository {
-	r := stores.MustNewRepository(config)
+	config mysql.RepositoryConfig,
+) *mysql.Repository {
+	r := mysql.MustNewRepository(config)
 	appLifecycle.Append(fx.Hook{
 		OnStart: r.Start,
 		OnStop:  r.Stop,
@@ -29,11 +39,11 @@ func newRepository(
 	return r
 }
 
-func newMessageStore(
+func newUserStore(
 	appLifecycle fx.Lifecycle,
-	repository *stores.Repository,
-) *stores.MessageStore {
-	s := stores.NewMessageStore(repository)
+	repository *mysql.Repository,
+) *stores.UserStore {
+	s := stores.NewUserStore(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -41,43 +51,130 @@ func newMessageStore(
 	return s
 }
 
-func newFakeClient(
+func newUserAttributeStore(
 	appLifecycle fx.Lifecycle,
-	config client.FakeClientConfig,
-) *client.FakeClient {
-	c := client.NewFakeClient(config)
+	repository *mysql.Repository,
+) *stores.UserAttributeStore {
+	s := stores.NewUserAttributeStore(repository)
 	appLifecycle.Append(fx.Hook{
-		OnStart: c.Start,
-		OnStop:  c.Stop,
+		OnStart: s.Start,
+		OnStop:  s.Stop,
 	})
-	return c
+	return s
 }
 
-func newFakeConsumer(
-	appLifecycle fx.Lifecycle,
-	config consumer.FakeConsumerConfig,
-	processor consumer.Processor,
-) *consumer.FakeConsumer {
-	c := consumer.NewFakeConsumer(config, processor)
-	appLifecycle.Append(fx.Hook{
-		OnStart: c.Start,
-		OnStop:  c.Stop,
-	})
-	return c
+func newUsersUsecase(
+	repository usecases.IRepository,
+	userStore usecases.IUserStore,
+	userAttributeStore usecases.IUserAttributeStore,
+) *usecases.Users {
+	return usecases.NewUsersUsecase(repository, userStore, userAttributeStore)
 }
 
-func newProcessor(
+func newController(
+	usecase controllers.IUserUsecase,
+) *controllers.UserController {
+	return controllers.NewUserController(usecase)
+}
+
+func startGrpcServer(
 	appLifecycle fx.Lifecycle,
-	client processor.Sender,
-	writer processor.DataWriter,
-	repo processor.DataRepository,
-) *processor.Processor {
-	p := processor.NewProcessor(client, writer, repo)
+	cfg config.ServerConfig,
+	userController *controllers.UserController,
+) *grpc.Server {
+	grpcHost := fmt.Sprintf("0.0.0.0:%d", cfg.GrpcPort)
+
+	listen, err := net.Listen("tcp", grpcHost)
+	if err != nil {
+		log.Fatalln("Failed to listen:", err)
+	}
+
+	server := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middlewares.HandleErrorCodes,
+		),
+	)
+	pb.RegisterUserServiceServer(server, userController)
+
 	appLifecycle.Append(fx.Hook{
-		OnStart: p.Start,
-		OnStop:  p.Stop,
+		OnStart: func(_ context.Context) error {
+			log.Infof("Starting grpc server on %s", grpcHost)
+			go func() {
+				if err := server.Serve(listen); err != nil {
+					log.Fatalln("Failed to serve grpc:", err)
+				}
+			}()
+
+			return nil
+		},
+		OnStop: func(_ context.Context) error {
+			log.Infof("Stopping grpc server on %s", grpcHost)
+			server.GracefulStop()
+
+			return nil
+		},
 	})
-	return p
+
+	return server
+}
+
+func startHttpServer( //nolint: funlen
+	appLifecycle fx.Lifecycle,
+	cfg config.ServerConfig,
+	userController *controllers.UserController,
+) *http.Server {
+	httpHost := fmt.Sprintf("0.0.0.0:%d", cfg.HttpPort)
+
+	gwmux := runtime.NewServeMux(
+		runtime.WithErrorHandler(
+			func(
+				ctx context.Context,
+				mux *runtime.ServeMux,
+				marshaler runtime.Marshaler,
+				w http.ResponseWriter,
+				r *http.Request,
+				err error,
+			) {
+				runtime.DefaultHTTPErrorHandler(
+					ctx, mux, marshaler, w, r,
+					middlewares.HandleError(err),
+				)
+			},
+		),
+	)
+	if err := pb.RegisterUserServiceHandlerServer(
+		globalContext, gwmux, userController,
+	); err != nil {
+		log.Fatalln("Failed to register gateway:", err)
+	}
+
+	gwServer := &http.Server{
+		Addr:        httpHost,
+		ReadTimeout: cfg.HttpServerReadTimeout,
+	}
+
+	appLifecycle.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			log.Infof("Starting http server on %s", httpHost)
+			go func() {
+				if err := gwServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					log.Fatalln("Failed to serve http:", err)
+				}
+			}()
+
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			log.Infof("Stopping http server on %s", httpHost)
+			if err := gwServer.Shutdown(ctx); err != nil {
+				log.Fatalln("Failed to shutdown http server:", err)
+			}
+
+			return nil
+		},
+	})
+
+	return gwServer
 }
 
 func newServerApp() *fx.App {
@@ -89,38 +186,35 @@ func newServerApp() *fx.App {
 		fx.StopTimeout(fx.DefaultTimeout),
 		fx.Supply(
 			cfg,
-			client.FakeClientConfig{
-				LatencyMs: cfg.FakeClient.LatencyMs,
-			},
-			consumer.FakeConsumerConfig{
-				PerMs: cfg.FakeConsumer.PerMs,
-			},
-			stores.RepositoryConfig{
-				DatabasePath: cfg.Sqlite.DatabasePath,
+			mysql.RepositoryConfig{
+				Username: cfg.MySql.Username,
+				Password: cfg.MySql.Password,
+				Protocol: cfg.MySql.Protocol,
+				Address:  cfg.MySql.Address,
+				Database: cfg.MySql.Database,
 			},
 		),
 		fx.Provide(
 			newRepository,
+			func(r *mysql.Repository) usecases.IRepository {
+				return r
+			},
 			fx.Annotate(
-				func(r *stores.Repository) *stores.Repository {
-					return r
-				},
-				fx.As(new(processor.DataRepository)),
+				newUserStore,
+				fx.As(new(usecases.IUserStore)),
 			),
 			fx.Annotate(
-				newMessageStore,
-				fx.As(new(processor.DataWriter)),
+				newUserAttributeStore,
+				fx.As(new(usecases.IUserAttributeStore)),
 			),
 			fx.Annotate(
-				newFakeClient,
-				fx.As(new(processor.Sender)),
+				newUsersUsecase,
+				fx.As(new(controllers.IUserUsecase)),
 			),
-			fx.Annotate(
-				newProcessor,
-				fx.As(new(consumer.Processor)),
-			),
+			newController,
 		),
-		fx.Invoke(newFakeConsumer),
+		fx.Invoke(startGrpcServer),
+		fx.Invoke(startHttpServer),
 	)
 }
 

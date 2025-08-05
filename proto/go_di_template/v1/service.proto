@@ -1,0 +1,16 @@
+syntax = "proto3";
+package go_di_template.v1;
+
+option go_package = "github.com/tuantran1810/go-di-template/proto/v1";
+
+import "google/api/annotations.proto";
+import "go_di_template/v1/interfaces.proto";
+
+service UserService {
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+        option (google.api.http) = {
+            post: "/api/internal/v1/users"
+            body: "*",
+        };
+    }
+}

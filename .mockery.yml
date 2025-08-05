@@ -8,3 +8,12 @@ packages:
                 config:
             IUserAttributeStore:
                 config:
+            IUUIDGenerator:
+                config:
+    github.com/tuantran1810/go-di-template/internal/controllers:
+        config:
+            dir: "mocks/controllers"
+            filename: "mock_{{.InterfaceName}}.go"
+        interfaces:
+            IUserUsecase:
+                config:

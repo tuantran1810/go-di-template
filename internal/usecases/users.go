@@ -5,64 +5,81 @@ import (
 	"fmt"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/utils"
 )
 
 type Users struct {
 	repository         IRepository
 	userStore          IUserStore
 	userAttributeStore IUserAttributeStore
+	uuidGenerator      IUUIDGenerator
 }
 
-func NewUsers(
+func NewUsersUsecase(
 	repository IRepository,
 	userStore IUserStore,
 	userAttributeStore IUserAttributeStore,
 ) *Users {
 	return &Users{
+		repository:         repository,
 		userStore:          userStore,
 		userAttributeStore: userAttributeStore,
+		uuidGenerator:      &utils.UUIDGenerator{},
 	}
 }
 
-func (u *Users) Create(ctx context.Context, user *entities.User, attributes []entities.KeyValuePair) (*entities.User, []entities.UserAttribute, error) {
+func (u *Users) createUserImpl(
+	ctx context.Context,
+	dbtx entities.Transaction,
+	user *entities.User,
+	attributes []entities.KeyValuePair,
+) (*entities.User, []entities.UserAttribute, error) {
+	outUser, err := u.userStore.Create(ctx, dbtx, user)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	atts := make([]entities.UserAttribute, len(attributes))
+	if len(attributes) == 0 {
+		return outUser, atts, nil
+	}
+
+	for i, attr := range attributes {
+		atts[i] = entities.UserAttribute{
+			UserID: outUser.ID,
+			Key:    attr.Key,
+			Value:  attr.Value,
+		}
+	}
+
+	outAttributes, err := u.userAttributeStore.CreateMany(ctx, dbtx, atts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create user attributes: %w", err)
+	}
+
+	return outUser, outAttributes, nil
+}
+
+func (u *Users) CreateUser(ctx context.Context, user *entities.User, attributes []entities.KeyValuePair) (*entities.User, []entities.UserAttribute, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
+
+	user.Uuid = u.uuidGenerator.MustNewUUID()
 
 	var outUser *entities.User
 	outAttributes := make([]entities.UserAttribute, 0)
 
-	err := u.repository.RunTx(
+	if err := u.repository.RunTx(
 		timeoutCtx,
 		func(ictx context.Context, dbtx entities.Transaction) error {
 			var ierr error
-			outUser, ierr = u.userStore.Create(ictx, dbtx, user)
+			outUser, outAttributes, ierr = u.createUserImpl(ictx, dbtx, user, attributes)
 			if ierr != nil {
 				return fmt.Errorf("failed to create user: %w", ierr)
 			}
-
-			if len(attributes) == 0 {
-				return nil
-			}
-
-			atts := make([]entities.UserAttribute, len(attributes))
-			for i, attr := range attributes {
-				atts[i] = entities.UserAttribute{
-					UserID: outUser.ID,
-					Key:    attr.Key,
-					Value:  attr.Value,
-				}
-			}
-
-			outAttributes, ierr = u.userAttributeStore.CreateMany(ictx, dbtx, atts)
-			if ierr != nil {
-				return fmt.Errorf("failed to create user attributes: %w", ierr)
-			}
-
 			return nil
 		},
-	)
-
-	if err != nil {
+	); err != nil {
 		return nil, nil, err
 	}
 

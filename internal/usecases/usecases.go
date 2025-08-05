@@ -10,8 +10,6 @@ import (
 const defaultTimeout = 10 * time.Second
 
 type IUserStore interface {
-	Query()
-	FindByUsername(ctx context.Context, tx entities.Transaction, username string) (*entities.User, error)
 	Create(ctx context.Context, tx entities.Transaction, user *entities.User) (*entities.User, error)
 }
 
@@ -21,4 +19,8 @@ type IUserAttributeStore interface {
 
 type IRepository interface {
 	RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error
+}
+
+type IUUIDGenerator interface {
+	MustNewUUID() string
 }

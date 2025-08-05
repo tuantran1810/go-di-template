@@ -1,0 +1,26 @@
+version: "2"
+linters:
+  # Enable specific linter
+  # https://golangci-lint.run/usage/linters/#enabled-by-default
+  enable-all: true
+  disable:
+    - gochecknoglobals
+    - gochecknoinits
+    - depguard
+    - exhaustruct
+    - tagliatelle
+    - tagalign
+    - protogetter
+    - revive
+    - varnamelen
+
+issues:
+  exclude-rules:
+    - path: (.+)_test.go
+      linters:
+        - funlen
+        - testpackage
+        - varnamelen
+        - wsl
+        - dupl
+        - err113

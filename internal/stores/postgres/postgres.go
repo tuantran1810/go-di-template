@@ -204,7 +204,7 @@ func (r *Repository) GetTransaction(tx entities.Transaction) *gorm.DB {
 		return r.db
 	}
 
-	return txImpl.(*gorm.DB) //nolint: forcetypeassert
+	return txImpl.(*gorm.DB)
 }
 
 func (r *Repository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
