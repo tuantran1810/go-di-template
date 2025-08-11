@@ -16,7 +16,7 @@ import (
 	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
 )
 
-func getUserTestData(t *testing.T) []entities.User {
+func (s *UserStoreTestSuite) getTestData(t *testing.T) []entities.User {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
 	return []entities.User{
@@ -38,16 +38,16 @@ func getUserTestData(t *testing.T) []entities.User {
 	}
 }
 
-func createTestData(t *testing.T, store *UserStore) {
+func (s *UserStoreTestSuite) createTestData(t *testing.T, store *UserStore) {
 	t.Helper()
 
-	if _, err := store.CreateMany(context.Background(), nil, getUserTestData(t)); err != nil {
+	if _, err := store.CreateMany(context.Background(), nil, s.getTestData(t)); err != nil {
 		t.Errorf("failed to create data: %v", err)
 		return
 	}
 }
 
-func setup(t *testing.T, port int) (*UserStore, error) {
+func (s *UserStoreTestSuite) setup(t *testing.T, port int) (*UserStore, error) {
 	t.Helper()
 
 	config := mysql.RepositoryConfig{
@@ -88,7 +88,7 @@ func setup(t *testing.T, port int) (*UserStore, error) {
 	}, nil
 }
 
-func cleanup(t *testing.T, store *UserStore) {
+func (s *UserStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
 	t.Helper()
 
 	if err := store.DB().Exec("DROP TABLE IF EXISTS `test`.`users`").Error; err != nil {
@@ -127,7 +127,7 @@ func (s *UserStoreTestSuite) SetupSuite() {
 	s.container = mysqlContainer
 	s.Require().NotNil(s.container)
 
-	store, err := setup(t, port.Int())
+	store, err := s.setup(t, port.Int())
 	s.Require().NoError(err)
 	s.store = store
 	s.Require().NotNil(s.store)
@@ -156,7 +156,7 @@ func (s *UserStoreTestSuite) SetupTest() {
 		return
 	}
 
-	createTestData(t, s.store)
+	s.createTestData(t, s.store)
 }
 
 func (s *UserStoreTestSuite) TearDownTest() {

@@ -103,3 +103,68 @@ func (_c *MockIUserUsecase_CreateUser_Call) RunAndReturn(run func(ctx context.Co
 	_c.Call.Return(run)
 	return _c
 }
+
+// GetUserByUsername provides a mock function for the type MockIUserUsecase
+func (_mock *MockIUserUsecase) GetUserByUsername(ctx context.Context, username string) (*entities.User, []entities.UserAttribute, error) {
+	ret := _mock.Called(ctx, username)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserByUsername")
+	}
+
+	var r0 *entities.User
+	var r1 []entities.UserAttribute
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*entities.User, []entities.UserAttribute, error)); ok {
+		return returnFunc(ctx, username)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *entities.User); ok {
+		r0 = returnFunc(ctx, username)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entities.User)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) []entities.UserAttribute); ok {
+		r1 = returnFunc(ctx, username)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]entities.UserAttribute)
+		}
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = returnFunc(ctx, username)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockIUserUsecase_GetUserByUsername_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserByUsername'
+type MockIUserUsecase_GetUserByUsername_Call struct {
+	*mock.Call
+}
+
+// GetUserByUsername is a helper method to define mock.On call
+//   - ctx
+//   - username
+func (_e *MockIUserUsecase_Expecter) GetUserByUsername(ctx interface{}, username interface{}) *MockIUserUsecase_GetUserByUsername_Call {
+	return &MockIUserUsecase_GetUserByUsername_Call{Call: _e.mock.On("GetUserByUsername", ctx, username)}
+}
+
+func (_c *MockIUserUsecase_GetUserByUsername_Call) Run(run func(ctx context.Context, username string)) *MockIUserUsecase_GetUserByUsername_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockIUserUsecase_GetUserByUsername_Call) Return(user *entities.User, userAttributes []entities.UserAttribute, err error) *MockIUserUsecase_GetUserByUsername_Call {
+	_c.Call.Return(user, userAttributes, err)
+	return _c
+}
+
+func (_c *MockIUserUsecase_GetUserByUsername_Call) RunAndReturn(run func(ctx context.Context, username string) (*entities.User, []entities.UserAttribute, error)) *MockIUserUsecase_GetUserByUsername_Call {
+	_c.Call.Return(run)
+	return _c
+}

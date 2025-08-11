@@ -85,3 +85,24 @@ func (u *Users) CreateUser(ctx context.Context, user *entities.User, attributes 
 
 	return outUser, outAttributes, nil
 }
+
+func (u *Users) GetUserByUsername(ctx context.Context, username string) (*entities.User, []entities.UserAttribute, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	if username == "" {
+		return nil, nil, fmt.Errorf("%w - input username is empty", entities.ErrInvalid)
+	}
+
+	user, err := u.userStore.FindByUsername(timeoutCtx, nil, username)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find user by username: %w", err)
+	}
+
+	atts, err := u.userAttributeStore.GetByUserID(timeoutCtx, nil, user.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user attributes: %w", err)
+	}
+
+	return user, atts, nil
+}

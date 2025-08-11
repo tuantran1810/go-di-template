@@ -70,3 +70,20 @@ func (s *UserAttributeStore) Stop(_ context.Context) error {
 	log.Info("stopping user attribute store")
 	return nil
 }
+
+func (s *UserAttributeStore) GetByUserID(
+	ctx context.Context,
+	tx entities.Transaction,
+	userID uint,
+) ([]entities.UserAttribute, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	return s.GenericStore.GetManyByCriterias(
+		timeoutCtx, tx,
+		nil,
+		map[string]any{"user_id": userID},
+		[]string{"id"},
+		0, 0,
+	)
+}

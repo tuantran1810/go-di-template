@@ -95,3 +95,61 @@ func (_c *MockIUserAttributeStore_CreateMany_Call) RunAndReturn(run func(ctx con
 	_c.Call.Return(run)
 	return _c
 }
+
+// GetByUserID provides a mock function for the type MockIUserAttributeStore
+func (_mock *MockIUserAttributeStore) GetByUserID(ctx context.Context, tx entities.Transaction, userID uint) ([]entities.UserAttribute, error) {
+	ret := _mock.Called(ctx, tx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByUserID")
+	}
+
+	var r0 []entities.UserAttribute
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, uint) ([]entities.UserAttribute, error)); ok {
+		return returnFunc(ctx, tx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, uint) []entities.UserAttribute); ok {
+		r0 = returnFunc(ctx, tx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entities.UserAttribute)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Transaction, uint) error); ok {
+		r1 = returnFunc(ctx, tx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockIUserAttributeStore_GetByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByUserID'
+type MockIUserAttributeStore_GetByUserID_Call struct {
+	*mock.Call
+}
+
+// GetByUserID is a helper method to define mock.On call
+//   - ctx
+//   - tx
+//   - userID
+func (_e *MockIUserAttributeStore_Expecter) GetByUserID(ctx interface{}, tx interface{}, userID interface{}) *MockIUserAttributeStore_GetByUserID_Call {
+	return &MockIUserAttributeStore_GetByUserID_Call{Call: _e.mock.On("GetByUserID", ctx, tx, userID)}
+}
+
+func (_c *MockIUserAttributeStore_GetByUserID_Call) Run(run func(ctx context.Context, tx entities.Transaction, userID uint)) *MockIUserAttributeStore_GetByUserID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(entities.Transaction), args[2].(uint))
+	})
+	return _c
+}
+
+func (_c *MockIUserAttributeStore_GetByUserID_Call) Return(userAttributes []entities.UserAttribute, err error) *MockIUserAttributeStore_GetByUserID_Call {
+	_c.Call.Return(userAttributes, err)
+	return _c
+}
+
+func (_c *MockIUserAttributeStore_GetByUserID_Call) RunAndReturn(run func(ctx context.Context, tx entities.Transaction, userID uint) ([]entities.UserAttribute, error)) *MockIUserAttributeStore_GetByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}

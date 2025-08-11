@@ -33,6 +33,7 @@ build: vendor
 	go build -o ${BINARY_NAME} main.go
 
 gen-mock: vendor gen-proto
+	rm -rf mocks
 	mockery
 
 test: gen-mock

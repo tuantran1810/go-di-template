@@ -65,3 +65,32 @@ func (c *UserController) CreateUser(
 		Attributes: pbAttributes,
 	}, nil
 }
+
+func (c *UserController) GetUserByUsername(
+	ctx context.Context,
+	req *pb.GetUserByUsernameRequest,
+) (*pb.GetUserByUsernameResponse, error) {
+	if err := protovalidate.Validate(req); err != nil {
+		return nil, fmt.Errorf("%w - err: %w", entities.ErrInvalid, err)
+	}
+
+	user, atts, err := c.usecase.GetUserByUsername(ctx, req.Username)
+	if err != nil {
+		return nil, fmt.Errorf("%w - cannot get user by username, err: %w", entities.ErrInvalid, err)
+	}
+
+	pbUser, err := c.userTransformer.FromEntity(user)
+	if err != nil {
+		return nil, fmt.Errorf("%w - cannot transform to pb user, err: %w", entities.ErrInvalid, err)
+	}
+
+	pbAttributes, err := c.userAttributeTransformer.FromEntityToPtrArray(atts)
+	if err != nil {
+		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
+	}
+
+	return &pb.GetUserByUsernameResponse{
+		User:       pbUser,
+		Attributes: pbAttributes,
+	}, nil
+}

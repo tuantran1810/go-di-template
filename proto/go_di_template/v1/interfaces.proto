@@ -3,6 +3,7 @@ package go_di_template.v1;
 
 option go_package = "github.com/tuantran1810/go-di-template/proto/v1";
 
+import "buf/validate/validate.proto";
 import "go_di_template/v1/entities.proto";
 
 message CreateUserRequest {
@@ -11,6 +12,15 @@ message CreateUserRequest {
 }
 
 message CreateUserResponse {
+    User user = 1;
+    repeated UserAttribute attributes = 2;
+}
+
+message GetUserByUsernameRequest {
+    string username = 1 [(buf.validate.field).string = {min_len: 1, max_len: 128}];
+}
+
+message GetUserByUsernameResponse {
     User user = 1;
     repeated UserAttribute attributes = 2;
 }

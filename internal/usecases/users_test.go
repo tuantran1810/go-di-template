@@ -504,3 +504,176 @@ func TestUsers_CreateUser(t *testing.T) {
 		})
 	}
 }
+
+func TestUsers_GetUserByUsername(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+
+	mockUserStore := mockUsecases.NewMockIUserStore(t)
+	mockUserAttributeStore := mockUsecases.NewMockIUserAttributeStore(t)
+
+	mockUserStore.EXPECT().
+		FindByUsername(mock.Anything, mock.Anything, "test1").
+		Return(&entities.User{
+			ID:        1,
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "test1",
+			Password:  "test1",
+			Uuid:      "test1",
+			Name:      "test1",
+			Email:     &[]string{"test1@test.com"}[0],
+		}, nil)
+
+	mockUserStore.EXPECT().
+		FindByUsername(mock.Anything, mock.Anything, "test_failed").
+		Return(nil, errors.New("fake error"))
+
+	mockUserStore.EXPECT().
+		FindByUsername(mock.Anything, mock.Anything, "failed_atts").
+		Return(&entities.User{
+			ID:        2,
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "failed_atts",
+		}, nil)
+	mockUserStore.EXPECT().
+		FindByUsername(mock.Anything, mock.Anything, "no_atts").
+		Return(&entities.User{
+			ID:        3,
+			CreatedAt: now,
+			UpdatedAt: now,
+			Username:  "no_atts",
+			Password:  "no_atts",
+			Uuid:      "no_atts",
+			Name:      "no_atts",
+			Email:     &[]string{"no_atts@test.com"}[0],
+		}, nil)
+
+	mockUserAttributeStore.EXPECT().
+		GetByUserID(mock.Anything, mock.Anything, uint(1)).
+		Return([]entities.UserAttribute{
+			{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key1",
+				Value:     "value1",
+			},
+			{
+				ID:        2,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key2",
+				Value:     "value2",
+			},
+		}, nil)
+	mockUserAttributeStore.EXPECT().
+		GetByUserID(mock.Anything, mock.Anything, uint(2)).
+		Return(nil, errors.New("fake error"))
+
+	mockUserAttributeStore.EXPECT().
+		GetByUserID(mock.Anything, mock.Anything, uint(3)).
+		Return([]entities.UserAttribute{}, nil)
+
+	u := &Users{
+		userStore:          mockUserStore,
+		userAttributeStore: mockUserAttributeStore,
+	}
+
+	tests := []struct {
+		name     string
+		username string
+		want     *entities.User
+		want1    []entities.UserAttribute
+		wantErr  bool
+	}{
+		{
+			name:     "success",
+			username: "test1",
+			want: &entities.User{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				Username:  "test1",
+				Password:  "test1",
+				Uuid:      "test1",
+				Name:      "test1",
+				Email:     &[]string{"test1@test.com"}[0],
+			},
+			want1: []entities.UserAttribute{
+				{
+					ID:        1,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "key1",
+					Value:     "value1",
+				},
+				{
+					ID:        2,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "key2",
+					Value:     "value2",
+				},
+			},
+		},
+		{
+			name:     "failed to find user",
+			username: "test_failed",
+			want:     nil,
+			want1:    nil,
+			wantErr:  true,
+		},
+		{
+			name:     "failed to get user attributes",
+			username: "failed_atts",
+			want:     nil,
+			want1:    nil,
+			wantErr:  true,
+		},
+		{
+			name:     "no attributes",
+			username: "no_atts",
+			want: &entities.User{
+				ID:        3,
+				CreatedAt: now,
+				UpdatedAt: now,
+				Username:  "no_atts",
+				Password:  "no_atts",
+				Uuid:      "no_atts",
+				Name:      "no_atts",
+				Email:     &[]string{"no_atts@test.com"}[0],
+			},
+			want1:   []entities.UserAttribute{},
+			wantErr: false,
+		},
+		{
+			name:     "empty username",
+			username: "",
+			want:     nil,
+			want1:    nil,
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, got1, err := u.GetUserByUsername(context.TODO(), tt.username)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Users.GetUserByUsername() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Users.GetUserByUsername() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Users.GetUserByUsername() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}

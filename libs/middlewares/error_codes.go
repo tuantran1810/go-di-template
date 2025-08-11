@@ -19,21 +19,21 @@ func HandleError(err error) error {
 
 	switch {
 	case errors.Is(err, entities.ErrCanceled):
-		return status.Error(codes.Canceled, errString) //nolint: wrapcheck
+		return status.Error(codes.Canceled, errString)
 	case errors.Is(err, entities.ErrTooManyRequests):
-		return status.Error(codes.ResourceExhausted, errString) //nolint: wrapcheck
+		return status.Error(codes.ResourceExhausted, errString)
 	case errors.Is(err, entities.ErrDatabase):
-		return status.Error(codes.Unavailable, errString) //nolint: wrapcheck
+		return status.Error(codes.Unavailable, errString)
 	case errors.Is(err, entities.ErrInvalid):
-		return status.Error(codes.InvalidArgument, errString) //nolint: wrapcheck
+		return status.Error(codes.InvalidArgument, errString)
 	case errors.Is(err, entities.ErrNotFound):
-		return status.Error(codes.NotFound, errString) //nolint: wrapcheck
+		return status.Error(codes.NotFound, errString)
 	case errors.Is(err, entities.ErrUnauthorized):
-		return status.Error(codes.Unauthenticated, errString) //nolint: wrapcheck
+		return status.Error(codes.Unauthenticated, errString)
 	case errors.Is(err, entities.ErrInternal):
-		return status.Error(codes.Internal, errString) //nolint: wrapcheck
+		return status.Error(codes.Internal, errString)
 	default:
-		return status.Error(codes.Unknown, errString) //nolint: wrapcheck
+		return status.Error(codes.Unknown, errString)
 	}
 }
 

@@ -95,3 +95,61 @@ func (_c *MockIUserStore_Create_Call) RunAndReturn(run func(ctx context.Context,
 	_c.Call.Return(run)
 	return _c
 }
+
+// FindByUsername provides a mock function for the type MockIUserStore
+func (_mock *MockIUserStore) FindByUsername(ctx context.Context, tx entities.Transaction, username string) (*entities.User, error) {
+	ret := _mock.Called(ctx, tx, username)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByUsername")
+	}
+
+	var r0 *entities.User
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, string) (*entities.User, error)); ok {
+		return returnFunc(ctx, tx, username)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, string) *entities.User); ok {
+		r0 = returnFunc(ctx, tx, username)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entities.User)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Transaction, string) error); ok {
+		r1 = returnFunc(ctx, tx, username)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockIUserStore_FindByUsername_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByUsername'
+type MockIUserStore_FindByUsername_Call struct {
+	*mock.Call
+}
+
+// FindByUsername is a helper method to define mock.On call
+//   - ctx
+//   - tx
+//   - username
+func (_e *MockIUserStore_Expecter) FindByUsername(ctx interface{}, tx interface{}, username interface{}) *MockIUserStore_FindByUsername_Call {
+	return &MockIUserStore_FindByUsername_Call{Call: _e.mock.On("FindByUsername", ctx, tx, username)}
+}
+
+func (_c *MockIUserStore_FindByUsername_Call) Run(run func(ctx context.Context, tx entities.Transaction, username string)) *MockIUserStore_FindByUsername_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(entities.Transaction), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockIUserStore_FindByUsername_Call) Return(user *entities.User, err error) *MockIUserStore_FindByUsername_Call {
+	_c.Call.Return(user, err)
+	return _c
+}
+
+func (_c *MockIUserStore_FindByUsername_Call) RunAndReturn(run func(ctx context.Context, tx entities.Transaction, username string) (*entities.User, error)) *MockIUserStore_FindByUsername_Call {
+	_c.Call.Return(run)
+	return _c
+}

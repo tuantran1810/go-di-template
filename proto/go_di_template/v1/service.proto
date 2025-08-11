@@ -13,4 +13,9 @@ service UserService {
             body: "*",
         };
     }
+    rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserByUsernameResponse) {
+        option (google.api.http) = {
+            get: "/api/internal/v1/users/{username}"
+        };
+    }
 }

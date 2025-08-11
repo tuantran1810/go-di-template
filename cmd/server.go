@@ -18,6 +18,9 @@ import (
 	pb "github.com/tuantran1810/go-di-template/pkg/go_di_template/v1"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -95,6 +98,8 @@ func startGrpcServer(
 		),
 	)
 	pb.RegisterUserServiceServer(server, userController)
+	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
+	reflection.Register(server)
 
 	appLifecycle.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
@@ -118,7 +123,7 @@ func startGrpcServer(
 	return server
 }
 
-func startHttpServer( //nolint: funlen
+func startHttpServer(
 	appLifecycle fx.Lifecycle,
 	cfg config.ServerConfig,
 	userController *controllers.UserController,
