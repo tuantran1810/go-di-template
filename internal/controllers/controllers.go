@@ -10,3 +10,7 @@ type IUserUsecase interface {
 	CreateUser(ctx context.Context, user *entities.User, attributes []entities.KeyValuePair) (*entities.User, []entities.UserAttribute, error)
 	GetUserByUsername(ctx context.Context, username string) (*entities.User, []entities.UserAttribute, error)
 }
+
+type ILoggingWorker interface {
+	Inject(msg entities.Message)
+}

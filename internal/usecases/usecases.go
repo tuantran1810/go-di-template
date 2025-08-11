@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/logger"
 )
+
+var log = logger.MustNamedLogger("usecases")
 
 const defaultTimeout = 10 * time.Second
 
@@ -17,6 +20,10 @@ type IUserStore interface {
 type IUserAttributeStore interface {
 	CreateMany(ctx context.Context, tx entities.Transaction, userAttributes []entities.UserAttribute) ([]entities.UserAttribute, error)
 	GetByUserID(ctx context.Context, tx entities.Transaction, userID uint) ([]entities.UserAttribute, error)
+}
+
+type IMessageStore interface {
+	CreateMany(ctx context.Context, tx entities.Transaction, messages []entities.Message) ([]entities.Message, error)
 }
 
 type IRepository interface {

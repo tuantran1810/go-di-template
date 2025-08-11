@@ -12,15 +12,20 @@ import (
 
 type UserController struct {
 	pb.UnimplementedUserServiceServer
-	usecase                  IUserUsecase
+	userUsecase              IUserUsecase
+	loggingWorker            ILoggingWorker
 	userTransformer          *transformers.PbUserTransformer
 	keyValuePairTransformer  *transformers.PbKeyValuePairTransformer
 	userAttributeTransformer *transformers.PbUserAttributesTransformer
 }
 
-func NewUserController(usecase IUserUsecase) *UserController {
+func NewUserController(
+	userUsecase IUserUsecase,
+	loggingWorker ILoggingWorker,
+) *UserController {
 	return &UserController{
-		usecase:                  usecase,
+		userUsecase:              userUsecase,
+		loggingWorker:            loggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
 		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
@@ -49,7 +54,7 @@ func (c *UserController) CreateUser(
 		return nil, fmt.Errorf("%w - cannot transform user attributes, err: %w", entities.ErrInvalid, err)
 	}
 
-	outUser, outAttributes, err := c.usecase.CreateUser(ctx, user, attributes)
+	outUser, outAttributes, err := c.userUsecase.CreateUser(ctx, user, attributes)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +68,11 @@ func (c *UserController) CreateUser(
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
 	}
+
+	c.loggingWorker.Inject(entities.Message{
+		Key:   "user_created",
+		Value: fmt.Sprintf("user_id: %d, username: %s", outUser.ID, outUser.Username),
+	})
 
 	return &pb.CreateUserResponse{
 		User:       pbUser,
@@ -78,7 +88,7 @@ func (c *UserController) GetUserByUsername(
 		return nil, fmt.Errorf("%w - err: %w", entities.ErrInvalid, err)
 	}
 
-	user, atts, err := c.usecase.GetUserByUsername(ctx, req.Username)
+	user, atts, err := c.userUsecase.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot get user by username, err: %w", entities.ErrInvalid, err)
 	}
@@ -92,6 +102,11 @@ func (c *UserController) GetUserByUsername(
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
 	}
+
+	c.loggingWorker.Inject(entities.Message{
+		Key:   "user_get",
+		Value: fmt.Sprintf("user_id: %d, username: %s", user.ID, user.Username),
+	})
 
 	return &pb.GetUserByUsernameResponse{
 		User:       pbUser,

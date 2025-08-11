@@ -27,7 +27,9 @@ var (
 	_ usecases.IRepository         = &mysql.Repository{}
 	_ usecases.IUserStore          = &stores.UserStore{}
 	_ usecases.IUserAttributeStore = &stores.UserAttributeStore{}
+	_ usecases.IMessageStore       = &stores.MessageStore{}
 	_ controllers.IUserUsecase     = &usecases.Users{}
+	_ controllers.ILoggingWorker   = &usecases.LoggingWorker{}
 )
 
 func newRepository(
@@ -66,6 +68,18 @@ func newUserAttributeStore(
 	return s
 }
 
+func newMessageStore(
+	appLifecycle fx.Lifecycle,
+	repository *mysql.Repository,
+) *stores.MessageStore {
+	s := stores.NewMessageStore(repository)
+	appLifecycle.Append(fx.Hook{
+		OnStart: s.Start,
+		OnStop:  s.Stop,
+	})
+	return s
+}
+
 func newUsersUsecase(
 	repository usecases.IRepository,
 	userStore usecases.IUserStore,
@@ -74,10 +88,24 @@ func newUsersUsecase(
 	return usecases.NewUsersUsecase(repository, userStore, userAttributeStore)
 }
 
+func newLoggingWorker(
+	cfg usecases.LoggingWorkerConfig,
+	appLifecycle fx.Lifecycle,
+	messageStore usecases.IMessageStore,
+) *usecases.LoggingWorker {
+	w := usecases.NewLoggingWorker(cfg, messageStore)
+	appLifecycle.Append(fx.Hook{
+		OnStart: w.Start,
+		OnStop:  w.Stop,
+	})
+	return w
+}
+
 func newController(
 	usecase controllers.IUserUsecase,
+	loggingWorker controllers.ILoggingWorker,
 ) *controllers.UserController {
-	return controllers.NewUserController(usecase)
+	return controllers.NewUserController(usecase, loggingWorker)
 }
 
 func startGrpcServer(
@@ -200,12 +228,20 @@ func newServerApp() *fx.App {
 				Database:  cfg.MySql.Database,
 				ParseTime: true,
 			},
+			usecases.LoggingWorkerConfig{
+				BufferCapacity: cfg.LoggingWorker.BufferCapacity,
+				FlushInterval:  cfg.LoggingWorker.FlushInterval,
+			},
 		),
 		fx.Provide(
 			newRepository,
 			func(r *mysql.Repository) usecases.IRepository {
 				return r
 			},
+			fx.Annotate(
+				newMessageStore,
+				fx.As(new(usecases.IMessageStore)),
+			),
 			fx.Annotate(
 				newUserStore,
 				fx.As(new(usecases.IUserStore)),
@@ -217,6 +253,10 @@ func newServerApp() *fx.App {
 			fx.Annotate(
 				newUsersUsecase,
 				fx.As(new(controllers.IUserUsecase)),
+			),
+			fx.Annotate(
+				newLoggingWorker,
+				fx.As(new(controllers.ILoggingWorker)),
 			),
 			newController,
 		),

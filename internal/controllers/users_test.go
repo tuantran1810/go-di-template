@@ -86,8 +86,17 @@ func TestUserController_CreateUser(t *testing.T) {
 		},
 	).Return(nil, nil, fmt.Errorf("fake error"))
 
+	mockLoggingWorker := mocks.NewMockILoggingWorker(t)
+	mockLoggingWorker.EXPECT().
+		Inject(entities.Message{
+			Key:   "user_created",
+			Value: "user_id: 1, username: test1",
+		}).
+		Return()
+
 	c := &UserController{
-		usecase:                  mockUserUsecase,
+		userUsecase:              mockUserUsecase,
+		loggingWorker:            mockLoggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
 		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
@@ -246,8 +255,17 @@ func TestUserController_GetUserByUsername(t *testing.T) {
 		GetUserByUsername(mock.Anything, "test_failed").
 		Return(nil, nil, fmt.Errorf("fake error"))
 
+	mockLoggingWorker := mocks.NewMockILoggingWorker(t)
+	mockLoggingWorker.EXPECT().
+		Inject(entities.Message{
+			Key:   "user_get",
+			Value: "user_id: 1, username: test1",
+		}).
+		Return()
+
 	c := &UserController{
-		usecase:                  mockUserUsecase,
+		userUsecase:              mockUserUsecase,
+		loggingWorker:            mockLoggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
 		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
