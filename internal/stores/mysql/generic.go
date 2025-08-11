@@ -69,7 +69,7 @@ func (s *GenericStore[T, E]) CreateMany(
 		return nil, fmt.Errorf("%w - input entities is empty", entities.ErrInvalid)
 	}
 
-	dataArray, err := s.transformer.FromEntityArray(entityArray)
+	dataArray, err := s.transformer.FromEntityArray_I2I(entityArray)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (s *GenericStore[T, E]) CreateMany(
 		return nil, GenerateError("failed to create data records", err)
 	}
 
-	return s.transformer.ToEntityArray(dataArray)
+	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
 func (s *GenericStore[T, E]) Get(
@@ -111,7 +111,7 @@ func (s *GenericStore[T, E]) GetMany(
 		return nil, GenerateError("failed to get records", err)
 	}
 
-	return s.transformer.ToEntityArray(dataArray)
+	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
 func (s *GenericStore[T, E]) GetByCriterias(
@@ -173,7 +173,7 @@ func (s *GenericStore[T, E]) GetManyByCriterias(
 		return nil, GenerateError("failed to get data records", err)
 	}
 
-	return s.transformer.ToEntityArray(dataArray)
+	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
 func (s *GenericStore[T, E]) Count(

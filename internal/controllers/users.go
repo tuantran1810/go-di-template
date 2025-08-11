@@ -35,12 +35,16 @@ func (c *UserController) CreateUser(
 		return nil, fmt.Errorf("%w - err: %w", entities.ErrInvalid, err)
 	}
 
+	if req.User == nil {
+		return nil, fmt.Errorf("%w - user is nil", entities.ErrInvalid)
+	}
+
 	user, err := c.userTransformer.ToEntity(req.User)
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform user, err: %w", entities.ErrInvalid, err)
 	}
 
-	attributes, err := c.keyValuePairTransformer.PtrToEntityArray(req.Attributes)
+	attributes, err := c.keyValuePairTransformer.ToEntityArray_P2I(req.Attributes)
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform user attributes, err: %w", entities.ErrInvalid, err)
 	}
@@ -55,7 +59,7 @@ func (c *UserController) CreateUser(
 		return nil, fmt.Errorf("%w - cannot transform to pb user, err: %w", entities.ErrInvalid, err)
 	}
 
-	pbAttributes, err := c.userAttributeTransformer.FromEntityToPtrArray(outAttributes)
+	pbAttributes, err := c.userAttributeTransformer.FromEntityArray_I2P(outAttributes)
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
 	}
@@ -84,7 +88,7 @@ func (c *UserController) GetUserByUsername(
 		return nil, fmt.Errorf("%w - cannot transform to pb user, err: %w", entities.ErrInvalid, err)
 	}
 
-	pbAttributes, err := c.userAttributeTransformer.FromEntityToPtrArray(atts)
+	pbAttributes, err := c.userAttributeTransformer.FromEntityArray_I2P(atts)
 	if err != nil {
 		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
 	}

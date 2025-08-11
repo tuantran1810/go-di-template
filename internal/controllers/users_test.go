@@ -183,6 +183,14 @@ func TestUserController_CreateUser(t *testing.T) {
 			wantErr: true,
 			want:    nil,
 		},
+		{
+			name: "nil user",
+			req: &pb.CreateUserRequest{
+				User: nil,
+			},
+			wantErr: true,
+			want:    nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

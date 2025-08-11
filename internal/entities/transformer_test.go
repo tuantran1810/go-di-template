@@ -50,7 +50,7 @@ func (t *DataTransformer) FromEntity(entity *DataEntity) (*Data, error) {
 	}, nil
 }
 
-func Test_FromEntityArray(t *testing.T) {
+func Test_FromEntityArray_I2I(t *testing.T) {
 	t.Parallel()
 	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
 	tests := []struct {
@@ -110,19 +110,19 @@ func Test_FromEntityArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := eTransformer.FromEntityArray(tt.in)
+			got, err := eTransformer.FromEntityArray_I2I(tt.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("FromEntityArray() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("FromEntityArray_I2I() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FromEntityArray() = %v, want %v", got, tt.want)
+				t.Errorf("FromEntityArray_I2I() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_FromEntityToPtrArray(t *testing.T) {
+func Test_FromEntityArray_I2P(t *testing.T) {
 	t.Parallel()
 	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
 	tests := []struct {
@@ -182,19 +182,163 @@ func Test_FromEntityToPtrArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := eTransformer.FromEntityToPtrArray(tt.in)
+			got, err := eTransformer.FromEntityArray_I2P(tt.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("FromEntityToPtrArray() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("FromEntityArray_I2P() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FromEntityToPtrArray() = %v, want %v", got, tt.want)
+				t.Errorf("FromEntityArray_I2P() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_ToEntityArray(t *testing.T) {
+func Test_FromEntityArray_P2I(t *testing.T) {
+	t.Parallel()
+	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
+	tests := []struct {
+		name    string
+		in      []*DataEntity
+		want    []Data
+		wantErr bool
+	}{
+		{
+			name:    "nil input",
+			in:      nil,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "empty input",
+			in:      []*DataEntity{},
+			want:    []Data{},
+			wantErr: false,
+		},
+		{
+			name: "error, empty entity",
+			in: []*DataEntity{
+				{
+					Key:   "",
+					Value: "",
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "happy case",
+			in: []*DataEntity{
+				{
+					Key:   "key1",
+					Value: "value1",
+				},
+				{
+					Key:   "key2",
+					Value: "value2",
+				},
+			},
+			want: []Data{
+				{
+					Key_:   "key1",
+					Value_: "value1",
+				},
+				{
+					Key_:   "key2",
+					Value_: "value2",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := eTransformer.FromEntityArray_P2I(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromEntityArray_P2I() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromEntityArray_P2I() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_FromEntityArray_P2P(t *testing.T) {
+	t.Parallel()
+	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
+	tests := []struct {
+		name    string
+		in      []*DataEntity
+		want    []*Data
+		wantErr bool
+	}{
+		{
+			name:    "nil input",
+			in:      nil,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "empty input",
+			in:      []*DataEntity{},
+			want:    []*Data{},
+			wantErr: false,
+		},
+		{
+			name: "error, empty entity",
+			in: []*DataEntity{
+				{
+					Key:   "",
+					Value: "",
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "happy case",
+			in: []*DataEntity{
+				{
+					Key:   "key1",
+					Value: "value1",
+				},
+				{
+					Key:   "key2",
+					Value: "value2",
+				},
+			},
+			want: []*Data{
+				{
+					Key_:   "key1",
+					Value_: "value1",
+				},
+				{
+					Key_:   "key2",
+					Value_: "value2",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := eTransformer.FromEntityArray_P2P(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromEntityArray_P2P() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromEntityArray_P2P() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_ToEntityArray_I2I(t *testing.T) {
 	t.Parallel()
 	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
 	tests := []struct {
@@ -254,19 +398,19 @@ func Test_ToEntityArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := eTransformer.ToEntityArray(tt.in)
+			got, err := eTransformer.ToEntityArray_I2I(tt.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ToEntityArray() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ToEntityArray_I2I() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ToEntityArray() = %v, want %v", got, tt.want)
+				t.Errorf("ToEntityArray_I2I() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_PtrToEntityArray(t *testing.T) {
+func Test_ToEntityArray_P2I(t *testing.T) {
 	t.Parallel()
 	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
 	tests := []struct {
@@ -326,19 +470,19 @@ func Test_PtrToEntityArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := eTransformer.PtrToEntityArray(tt.in)
+			got, err := eTransformer.ToEntityArray_P2I(tt.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("PtrToEntityArray() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ToEntityArray_P2I() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PtrToEntityArray() = %v, want %v", got, tt.want)
+				t.Errorf("ToEntityArray_P2I() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_ToEntityPtrArray(t *testing.T) {
+func Test_ToEntityArray_I2P(t *testing.T) {
 	t.Parallel()
 	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
 	tests := []struct {
@@ -398,13 +542,85 @@ func Test_ToEntityPtrArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := eTransformer.ToEntityPtrArray(tt.in)
+			got, err := eTransformer.ToEntityArray_I2P(tt.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ToEntityPtrArray() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ToEntityArray_I2P() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ToEntityPtrArray() = %v, want %v", got, tt.want)
+				t.Errorf("ToEntityArray_I2P() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_ToEntityArray_P2P(t *testing.T) {
+	t.Parallel()
+	eTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
+	tests := []struct {
+		name    string
+		in      []*Data
+		want    []*DataEntity
+		wantErr bool
+	}{
+		{
+			name:    "nil input",
+			in:      nil,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "empty input",
+			in:      []*Data{},
+			want:    []*DataEntity{},
+			wantErr: false,
+		},
+		{
+			name: "error, empty entity",
+			in: []*Data{
+				{
+					Key_:   "",
+					Value_: "",
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "happy case",
+			in: []*Data{
+				{
+					Key_:   "key1",
+					Value_: "value1",
+				},
+				{
+					Key_:   "key2",
+					Value_: "value2",
+				},
+			},
+			want: []*DataEntity{
+				{
+					Key:   "key1",
+					Value: "value1",
+				},
+				{
+					Key:   "key2",
+					Value: "value2",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := eTransformer.ToEntityArray_P2P(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToEntityArray_P2P() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToEntityArray_P2P() = %v, want %v", got, tt.want)
 			}
 		})
 	}

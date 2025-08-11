@@ -156,6 +156,7 @@ func startHttpServer(
 	gwServer := &http.Server{
 		Addr:        httpHost,
 		ReadTimeout: cfg.HttpServerReadTimeout,
+		Handler:     gwmux,
 	}
 
 	appLifecycle.Append(fx.Hook{
@@ -192,11 +193,12 @@ func newServerApp() *fx.App {
 		fx.Supply(
 			cfg,
 			mysql.RepositoryConfig{
-				Username: cfg.MySql.Username,
-				Password: cfg.MySql.Password,
-				Protocol: cfg.MySql.Protocol,
-				Address:  cfg.MySql.Address,
-				Database: cfg.MySql.Database,
+				Username:  cfg.MySql.Username,
+				Password:  cfg.MySql.Password,
+				Protocol:  cfg.MySql.Protocol,
+				Address:   cfg.MySql.Address,
+				Database:  cfg.MySql.Database,
+				ParseTime: true,
 			},
 		),
 		fx.Provide(
