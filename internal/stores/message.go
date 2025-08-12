@@ -31,7 +31,7 @@ func (s *MessageStore) Start(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	err := s.GenericStore.AutoMigrate(timeoutCtx)
+	err := s.AutoMigrate(timeoutCtx)
 	if err != nil {
 		return err
 	}

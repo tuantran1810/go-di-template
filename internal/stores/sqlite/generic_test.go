@@ -195,7 +195,11 @@ type GenericDataTestSuite struct {
 }
 
 func (s *GenericDataTestSuite) SetupSuite() {
-	os.Setenv("TZ", "UTC")
+	t := s.T()
+	if err := os.Setenv("TZ", "UTC"); err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
 }
 
 func (s *GenericDataTestSuite) TearDownSuite() {
@@ -227,8 +231,16 @@ func (s *GenericDataTestSuite) SetupTest() {
 }
 
 func (s *GenericDataTestSuite) TearDownTest() {
-	s.store.Stop(context.Background())
-	s.fkStore.Stop(context.Background())
+	t := s.T()
+	if err := s.store.Stop(context.Background()); err != nil {
+		t.Errorf("failed to stop store: %v\n", err)
+		return
+	}
+
+	if err := s.fkStore.Stop(context.Background()); err != nil {
+		t.Errorf("failed to stop fkStore: %v\n", err)
+		return
+	}
 }
 
 func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
@@ -243,7 +255,10 @@ func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
 
 func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
 	t := s.T()
-	s.store.Stop(context.Background())
+	if err := s.store.Stop(context.Background()); err != nil {
+		t.Errorf("failed to stop store: %v\n", err)
+		return
+	}
 
 	t.Run("Ping", func(t *testing.T) {
 		if err := s.store.Ping(context.Background()); err == nil {

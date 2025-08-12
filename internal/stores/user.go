@@ -73,7 +73,7 @@ func (s *UserStore) Start(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	err := s.GenericStore.AutoMigrate(timeoutCtx)
+	err := s.AutoMigrate(timeoutCtx)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (s *UserStore) FindByUsername(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	user, err := s.GenericStore.GetByCriterias(
+	user, err := s.GetByCriterias(
 		timeoutCtx, tx,
 		nil,
 		map[string]any{"username": username},

@@ -71,7 +71,7 @@ func (s *UserAttributeStoreTestSuite) createTestData(t *testing.T, userStore *Us
 	}
 }
 
-func setup(t *testing.T, port int) (*UserStore, *UserAttributeStore, error) {
+func (s *UserAttributeStoreTestSuite) setup(t *testing.T, port int) (*UserStore, *UserAttributeStore, error) {
 	t.Helper()
 
 	config := mysql.RepositoryConfig{
@@ -115,7 +115,7 @@ func setup(t *testing.T, port int) (*UserStore, *UserAttributeStore, error) {
 		}, nil
 }
 
-func cleanup(t *testing.T, store *UserStore) {
+func (s *UserAttributeStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
 	t.Helper()
 
 	if err := store.DB().Exec("DROP TABLE IF EXISTS `test`.`users`").Error; err != nil {
@@ -138,7 +138,10 @@ type UserAttributeStoreTestSuite struct {
 
 func (s *UserAttributeStoreTestSuite) SetupSuite() {
 	t := s.T()
-	os.Setenv("TZ", "UTC")
+	if err := os.Setenv("TZ", "UTC"); err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
 
 	mysqlContainer, err := mysqlModule.Run(context.Background(),
 		"mysql:lts",
@@ -160,7 +163,7 @@ func (s *UserAttributeStoreTestSuite) SetupSuite() {
 	s.container = mysqlContainer
 	s.Require().NotNil(s.container)
 
-	userStore, attStore, err := setup(t, port.Int())
+	userStore, attStore, err := s.setup(t, port.Int())
 	s.Require().NoError(err)
 	s.userStore = userStore
 	s.Require().NotNil(s.userStore)
@@ -174,7 +177,7 @@ func (s *UserAttributeStoreTestSuite) SetupSuite() {
 
 func (s *UserAttributeStoreTestSuite) TearDownSuite() {
 	t := s.T()
-	cleanup(t, s.userStore)
+	s.cleanup(t, s.userStore)
 
 	if err := testcontainers.TerminateContainer(s.container); err != nil {
 		t.Errorf("failed to terminate container: %v", err)

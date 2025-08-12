@@ -17,7 +17,7 @@ func TestPointer(t *testing.T) {
 		}
 	})
 
-	var vString string = "test"
+	var vString = "test"
 	t.Run("string value", func(t *testing.T) {
 		t.Parallel()
 		if got := Pointer(vString); !reflect.DeepEqual(*got, vString) {
@@ -25,7 +25,7 @@ func TestPointer(t *testing.T) {
 		}
 	})
 
-	var vBool bool = true
+	var vBool = true
 	t.Run("bool value", func(t *testing.T) {
 		t.Parallel()
 		if got := Pointer(vBool); !reflect.DeepEqual(*got, vBool) {
@@ -33,7 +33,7 @@ func TestPointer(t *testing.T) {
 		}
 	})
 
-	var vFloat float64 = 1.0
+	var vFloat = 1.0
 	t.Run("float value", func(t *testing.T) {
 		t.Parallel()
 		if got := Pointer(vFloat); !reflect.DeepEqual(*got, vFloat) {
@@ -41,7 +41,7 @@ func TestPointer(t *testing.T) {
 		}
 	})
 
-	var vTime time.Time = time.Now()
+	var vTime = time.Now()
 	t.Run("time value", func(t *testing.T) {
 		t.Parallel()
 		if got := Pointer(vTime); !reflect.DeepEqual(*got, vTime) {

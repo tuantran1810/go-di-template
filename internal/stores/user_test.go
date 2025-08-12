@@ -105,7 +105,10 @@ type UserStoreTestSuite struct {
 
 func (s *UserStoreTestSuite) SetupSuite() {
 	t := s.T()
-	os.Setenv("TZ", "UTC")
+	if err := os.Setenv("TZ", "UTC"); err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
 
 	mysqlContainer, err := mysqlModule.Run(context.Background(),
 		"mysql:lts",
@@ -139,7 +142,7 @@ func (s *UserStoreTestSuite) SetupSuite() {
 
 func (s *UserStoreTestSuite) TearDownSuite() {
 	t := s.T()
-	cleanup(t, s.store)
+	s.cleanup(t, s.store)
 
 	if err := testcontainers.TerminateContainer(s.container); err != nil {
 		t.Errorf("failed to terminate container: %v", err)

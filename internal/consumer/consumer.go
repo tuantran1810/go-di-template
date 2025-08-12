@@ -33,7 +33,7 @@ func NewFakeConsumer(config FakeConsumerConfig, loggingWorker ILoggingWorker) *F
 }
 
 func (c *FakeConsumer) generateContentWorker(ctx context.Context) {
-	timer := time.NewTicker(time.Millisecond * time.Duration(c.FakeConsumerConfig.PerMs))
+	timer := time.NewTicker(time.Millisecond * time.Duration(c.PerMs))
 	for {
 		select {
 		case <-timer.C:

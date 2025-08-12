@@ -189,7 +189,11 @@ func TestRepository_Start(t *testing.T) {
 		return
 	}
 
-	defer postgresContainer.Terminate(context.Background())
+	defer func() {
+		if err := postgresContainer.Terminate(context.Background()); err != nil {
+			t.Errorf("failed to terminate postgres container: %v", err)
+		}
+	}()
 
 	config := RepositoryConfig{
 		Host:                   "localhost",
@@ -204,7 +208,11 @@ func TestRepository_Start(t *testing.T) {
 
 	t.Run("Start", func(t *testing.T) {
 		r := MustNewRepository(config)
-		defer r.Stop(context.Background())
+		defer func() {
+			if err := r.Stop(context.Background()); err != nil {
+				t.Errorf("failed to stop repository: %v", err)
+			}
+		}()
 
 		if err := r.Start(context.Background()); err != nil {
 			t.Errorf("failed to start repository: %v", err)

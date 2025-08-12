@@ -9,6 +9,7 @@ build \
 gen-mock \
 test \
 test-coverage \
+test-coverage-html \
 install-dev-env
 
 clean:
@@ -41,6 +42,9 @@ test: gen-mock
 
 test-coverage: gen-mock
 	go test ./internal/... ./libs/... -coverprofile=coverage.out
+
+test-coverage-html: test-coverage
+	go tool cover -html=coverage.out
 
 install-dev-env:
 	GOPROXY=https://proxy.golang.org go install github.com/vektra/mockery/v3@v3.2.5

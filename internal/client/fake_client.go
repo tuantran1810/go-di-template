@@ -37,7 +37,7 @@ func (c *FakeClient) Stop(_ context.Context) error {
 func (c *FakeClient) Send(ctx context.Context, msg *entities.Message) error {
 	latencyCtx, cancel := context.WithTimeout(
 		context.Background(),
-		time.Millisecond*time.Duration(c.FakeClientConfig.LatencyMs),
+		time.Millisecond*time.Duration(c.LatencyMs),
 	)
 	defer cancel()
 

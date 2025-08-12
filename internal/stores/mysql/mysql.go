@@ -168,7 +168,7 @@ func MustNewRepository(cfg RepositoryConfig) *Repository {
 
 func (r *Repository) Start(ctx context.Context) error {
 	log.Info("starting mysql repository")
-	dsn := r.RepositoryConfig.DSN()
+	dsn := r.DSN()
 	db, err := gorm.Open(
 		mysql.Open(dsn),
 		&gorm.Config{},
@@ -182,9 +182,9 @@ func (r *Repository) Start(ctx context.Context) error {
 		return fmt.Errorf("%w - failed to get database instance: %w", entities.ErrDatabase, err)
 	}
 
-	dbInstance.SetMaxOpenConns(int(r.RepositoryConfig.MaxOpenConns))
-	dbInstance.SetMaxIdleConns(int(r.RepositoryConfig.MaxIdleConns))
-	dbInstance.SetConnMaxLifetime(time.Duration(r.RepositoryConfig.ConnMaxLifeTimeSeconds) * time.Second)
+	dbInstance.SetMaxOpenConns(int(r.MaxOpenConns))
+	dbInstance.SetMaxIdleConns(int(r.MaxIdleConns))
+	dbInstance.SetConnMaxLifetime(time.Duration(r.ConnMaxLifeTimeSeconds) * time.Second)
 
 	if err := dbInstance.Ping(); err != nil {
 		return fmt.Errorf("%w - failed to ping database: %w", entities.ErrDatabase, err)

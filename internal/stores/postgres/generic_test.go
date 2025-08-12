@@ -218,7 +218,10 @@ type GenericDataTestSuite struct {
 
 func (s *GenericDataTestSuite) SetupSuite() {
 	t := s.T()
-	os.Setenv("TZ", "UTC")
+	if err := os.Setenv("TZ", "UTC"); err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
 
 	postgresContainer, err := postgres.Run(context.Background(),
 		"postgres:latest",

@@ -58,7 +58,7 @@ func (s *UserAttributeStore) Start(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	err := s.GenericStore.AutoMigrate(timeoutCtx)
+	err := s.AutoMigrate(timeoutCtx)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (s *UserAttributeStore) GetByUserID(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	return s.GenericStore.GetManyByCriterias(
+	return s.GetManyByCriterias(
 		timeoutCtx, tx,
 		nil,
 		map[string]any{"user_id": userID},

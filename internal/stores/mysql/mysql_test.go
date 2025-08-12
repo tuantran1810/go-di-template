@@ -195,7 +195,11 @@ func TestRepository_Start(t *testing.T) {
 		return
 	}
 
-	defer mysqlContainer.Terminate(context.Background())
+	defer func() {
+		if err := mysqlContainer.Terminate(context.Background()); err != nil {
+			t.Errorf("failed to terminate mysql container: %v", err)
+		}
+	}()
 
 	config := RepositoryConfig{
 		Username:  "root",
@@ -227,7 +231,11 @@ func TestRepository_Start(t *testing.T) {
 
 	t.Run("Start", func(t *testing.T) {
 		r := MustNewRepository(config)
-		defer r.Stop(context.Background())
+		defer func() {
+			if err := r.Stop(context.Background()); err != nil {
+				t.Errorf("failed to stop repository: %v", err)
+			}
+		}()
 
 		if err := r.Start(context.Background()); err != nil {
 			t.Errorf("failed to start repository: %v", err)

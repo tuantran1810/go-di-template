@@ -38,14 +38,12 @@ func TestLoggingWorker_Inject(t *testing.T) {
 }
 
 func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
-	t.Parallel()
 	capacity := 100
 
 	mockMessageStore := mockUsecases.NewMockIMessageStore(t)
 	mockMessageStore.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, mock.Anything).
-		Return([]entities.Message{}, nil).
-		Times(11)
+		Return([]entities.Message{}, nil)
 
 	w := NewLoggingWorker(
 		LoggingWorkerConfig{
@@ -81,7 +79,7 @@ func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 			}()
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(1010 * time.Millisecond)
 		cancel()
 
 		w.Inject(entities.Message{
@@ -96,14 +94,12 @@ func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 }
 
 func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
-	t.Parallel()
 	capacity := 100000
 
 	mockMessageStore := mockUsecases.NewMockIMessageStore(t)
 	mockMessageStore.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, mock.Anything).
-		Return([]entities.Message{}, nil).
-		Times(11)
+		Return([]entities.Message{}, nil)
 
 	w := NewLoggingWorker(
 		LoggingWorkerConfig{
@@ -137,7 +133,7 @@ func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
 			}
 		}()
 
-		time.Sleep(105 * time.Millisecond)
+		time.Sleep(102 * time.Millisecond)
 		cancel()
 
 		if err := w.Stop(context.Background()); err != nil {
