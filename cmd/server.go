@@ -10,8 +10,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/tuantran1810/go-di-template/config"
-	"github.com/tuantran1810/go-di-template/internal/client"
-	"github.com/tuantran1810/go-di-template/internal/consumer"
+	"github.com/tuantran1810/go-di-template/internal/clients"
+	"github.com/tuantran1810/go-di-template/internal/consumers"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
 	"github.com/tuantran1810/go-di-template/internal/repositories"
 	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
@@ -113,9 +113,9 @@ func newController(
 
 func newFakeClient(
 	appLifecycle fx.Lifecycle,
-	config client.FakeClientConfig,
-) *client.FakeClient {
-	c := client.NewFakeClient(config)
+	config clients.FakeClientConfig,
+) *clients.FakeClient {
+	c := clients.NewFakeClient(config)
 	appLifecycle.Append(fx.Hook{
 		OnStart: c.Start,
 		OnStop:  c.Stop,
@@ -126,10 +126,10 @@ func newFakeClient(
 func newFakeConsumer(
 	appLifecycle fx.Lifecycle,
 	config config.ConsumerConfig,
-	loggingWorker consumer.ILoggingWorker,
-) *consumer.FakeConsumer {
-	c := consumer.NewFakeConsumer(
-		consumer.FakeConsumerConfig{
+	loggingWorker consumers.ILoggingWorker,
+) *consumers.FakeConsumer {
+	c := consumers.NewFakeConsumer(
+		consumers.FakeConsumerConfig{
 			PerMs: config.PerMs,
 		},
 		loggingWorker,
@@ -270,7 +270,7 @@ func newServerApp() *fx.App {
 			config.ConsumerConfig{
 				PerMs: cfg.Consumer.PerMs,
 			},
-			client.FakeClientConfig{
+			clients.FakeClientConfig{
 				LatencyMs: cfg.Client.LatencyMs,
 			},
 		),
@@ -302,7 +302,7 @@ func newServerApp() *fx.App {
 			fx.Annotate(
 				newLoggingWorker,
 				fx.As(new(controllers.ILoggingWorker)),
-				fx.As(new(consumer.ILoggingWorker)),
+				fx.As(new(consumers.ILoggingWorker)),
 			),
 			newController,
 		),

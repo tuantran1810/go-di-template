@@ -1,0 +1,16 @@
+---
+description: this rule is an instruction to write code with clean architecture structure
+globs:
+alwaysApply: true
+---
+
+### Overview:
+- This project was structured strictly with **Clean Architecture**, with:
+  - Entity: This layer is the core business of the project, and it must not yeild any dependencies to another package. It is mainly used to stores business objects (structs) and basic functions to operate on them. Entity is widely known and used by all layers in the project, and play the intermediary role to communicate between layers. A layer can have its own data structure, but it should expose functions that receive entity objects and also return entity objects instead of its own data structure. The transformation between data types must be performed inside that layer. Importing infrastructure/framework packages to Entity is prohibited, only utility packages are allowed
+  - Usecase: this is where the important business logic is written. This layer must be isolated strictly from the infrastructure, or any kind of framework. All the dependencies must be abstracted and injected to the Usecase using dependency inversion technique. Unit test is important for this layer, so functions should be short enough (less than 100 lines if possible), all infrastructure dependencies must be abstracted with interfaces so that it's easy to generate mocks. Importing infrastructure/framework package to Usecase is prohibited. Usecase is only allowed to import Entity and utility packages
+  - Repository: Data access layer of the project. This layer knows all about the databases we are using, including all kinds of storages (such as MySQL, Postgres, Sqlite, Redis, Mongo, etc.). It executes
+
+
+- Inside the /internal folder, the code layout looks like:
+  - clients/: external clients to call to other services, including http, gRPC and any kind of protocols, including producer clients to any queue/messaging infrastructures like Google Pubsub, Kafka, RabbitMQ, MQTT, etc.. These clients should be treated as a repository
+  - consumers/: consumer clients, to trigger consuming events. It could be 

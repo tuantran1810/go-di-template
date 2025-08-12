@@ -1,4 +1,4 @@
-package consumer
+package consumers
 
 import (
 	"context"
