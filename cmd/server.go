@@ -13,7 +13,7 @@ import (
 	"github.com/tuantran1810/go-di-template/internal/client"
 	"github.com/tuantran1810/go-di-template/internal/consumer"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
-	stores "github.com/tuantran1810/go-di-template/internal/repositories"
+	"github.com/tuantran1810/go-di-template/internal/repositories"
 	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"github.com/tuantran1810/go-di-template/internal/usecases"
 	"github.com/tuantran1810/go-di-template/libs/middlewares"
@@ -27,9 +27,9 @@ import (
 
 var (
 	_ usecases.IRepository              = &mysql.Repository{}
-	_ usecases.IUserRepository          = &stores.UserRepository{}
-	_ usecases.IUserAttributeRepository = &stores.UserAttributeRepository{}
-	_ usecases.IMessageRepository       = &stores.MessageRepository{}
+	_ usecases.IUserRepository          = &repositories.UserRepository{}
+	_ usecases.IUserAttributeRepository = &repositories.UserAttributeRepository{}
+	_ usecases.IMessageRepository       = &repositories.MessageRepository{}
 	_ controllers.IUserUsecase          = &usecases.Users{}
 	_ controllers.ILoggingWorker        = &usecases.LoggingWorker{}
 )
@@ -49,8 +49,8 @@ func newRepository(
 func newUserRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.UserRepository {
-	s := stores.NewUserRepository(repository)
+) *repositories.UserRepository {
+	s := repositories.NewUserRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -61,8 +61,8 @@ func newUserRepository(
 func newUserAttributeRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.UserAttributeRepository {
-	s := stores.NewUserAttributeRepository(repository)
+) *repositories.UserAttributeRepository {
+	s := repositories.NewUserAttributeRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -73,8 +73,8 @@ func newUserAttributeRepository(
 func newMessageRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.MessageRepository {
-	s := stores.NewMessageRepository(repository)
+) *repositories.MessageRepository {
+	s := repositories.NewMessageRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
