@@ -15,7 +15,7 @@ type UserController struct {
 	userUsecase              IUserUsecase
 	loggingWorker            ILoggingWorker
 	userTransformer          *transformers.PbUserTransformer
-	keyValuePairTransformer  *transformers.PbKeyValuePairTransformer
+	keyValuePairTransformer  *entities.ExtendedDataTransformer[pb.KeyValuePair, entities.KeyValuePair]
 	userAttributeTransformer *transformers.PbUserAttributesTransformer
 }
 
@@ -27,7 +27,7 @@ func NewUserController(
 		userUsecase:              userUsecase,
 		loggingWorker:            loggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
-		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
+		keyValuePairTransformer:  entities.NewBaseExtendedTransformer[pb.KeyValuePair, entities.KeyValuePair](),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
 	}
 }

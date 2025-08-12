@@ -14,36 +14,12 @@ type Message struct {
 	Value string
 }
 
-type messageTransformer struct{}
-
-func (t *messageTransformer) ToEntity(data *Message) (*entities.Message, error) {
-	return &entities.Message{
-		ID:        data.ID,
-		CreatedAt: data.CreatedAt,
-		UpdatedAt: data.UpdatedAt,
-		Key:       data.Key,
-		Value:     data.Value,
-	}, nil
-}
-
-func (t *messageTransformer) FromEntity(entity *entities.Message) (*Message, error) {
-	return &Message{
-		Model: gorm.Model{
-			ID:        entity.ID,
-			CreatedAt: entity.CreatedAt,
-			UpdatedAt: entity.UpdatedAt,
-		},
-		Key:   entity.Key,
-		Value: entity.Value,
-	}, nil
-}
-
 type MessageStore struct {
 	*mysql.GenericStore[Message, entities.Message]
 }
 
 func NewMessageStore(repository *mysql.Repository) *MessageStore {
-	transformer := entities.NewExtendedDataTransformer(&messageTransformer{})
+	transformer := entities.NewBaseExtendedTransformer[Message, entities.Message]()
 	return &MessageStore{
 		GenericStore: mysql.NewGenericStore(repository, transformer),
 	}

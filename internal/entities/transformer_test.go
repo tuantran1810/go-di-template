@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/utils"
 )
 
 type Data struct {
@@ -621,6 +622,145 @@ func Test_ToEntityArray_P2P(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ToEntityArray_P2P() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type InnerData struct {
+	Key   string
+	Value string
+}
+
+type EmbededData struct {
+	InnerData
+	Extra *string
+}
+
+type EmbededDataEntity struct {
+	Key   string
+	Value string
+	Extra string
+}
+
+func Test_BaseTransformer_ToEntity(t *testing.T) {
+	t.Parallel()
+	transformer := entities.BaseTransformer[EmbededData, EmbededDataEntity]{}
+
+	tests := []struct {
+		name    string
+		in      *EmbededData
+		want    *EmbededDataEntity
+		wantErr bool
+	}{
+		{
+			name:    "nil input",
+			in:      nil,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "happy case",
+			in: &EmbededData{
+				InnerData: InnerData{
+					Key:   "key1",
+					Value: "value1",
+				},
+				Extra: utils.Pointer("extra1"),
+			},
+			want: &EmbededDataEntity{
+				Key:   "key1",
+				Value: "value1",
+				Extra: "extra1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "happy case with nil extra",
+			in: &EmbededData{
+				InnerData: InnerData{
+					Key:   "key1",
+					Value: "value1",
+				},
+			},
+			want: &EmbededDataEntity{
+				Key:   "key1",
+				Value: "value1",
+				Extra: "",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := transformer.ToEntity(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToEntity() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToEntity() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_BaseTransformer_FromEntity(t *testing.T) {
+	t.Parallel()
+	transformer := entities.BaseTransformer[EmbededData, EmbededDataEntity]{}
+
+	tests := []struct {
+		name    string
+		in      *EmbededDataEntity
+		want    *EmbededData
+		wantErr bool
+	}{
+		{
+			name:    "nil input",
+			in:      nil,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "happy case",
+			in: &EmbededDataEntity{
+				Key:   "key1",
+				Value: "value1",
+				Extra: "extra1",
+			},
+			want: &EmbededData{
+				InnerData: InnerData{
+					Key:   "key1",
+					Value: "value1",
+				},
+				Extra: utils.Pointer("extra1"),
+			},
+		},
+		{
+			name: "happy case with nil extra",
+			in: &EmbededDataEntity{
+				Key:   "key1",
+				Value: "value1",
+			},
+			want: &EmbededData{
+				InnerData: InnerData{
+					Key:   "key1",
+					Value: "value1",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := transformer.FromEntity(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromEntity() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromEntity() = %v, want %v", got, tt.want)
 			}
 		})
 	}

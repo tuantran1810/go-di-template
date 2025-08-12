@@ -98,7 +98,7 @@ func TestUserController_CreateUser(t *testing.T) {
 		userUsecase:              mockUserUsecase,
 		loggingWorker:            mockLoggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
-		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
+		keyValuePairTransformer:  entities.NewBaseExtendedTransformer[pb.KeyValuePair, entities.KeyValuePair](),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
 	}
 
@@ -267,7 +267,7 @@ func TestUserController_GetUserByUsername(t *testing.T) {
 		userUsecase:              mockUserUsecase,
 		loggingWorker:            mockLoggingWorker,
 		userTransformer:          transformers.NewPbUserTransformer(),
-		keyValuePairTransformer:  transformers.NewPbKeyValuePairTransformer(),
+		keyValuePairTransformer:  entities.NewBaseExtendedTransformer[pb.KeyValuePair, entities.KeyValuePair](),
 		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
 	}
 

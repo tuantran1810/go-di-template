@@ -1,5 +1,11 @@
 package entities
 
+import (
+	"fmt"
+
+	"github.com/jinzhu/copier"
+)
+
 type DataTransformer[T, E any] interface {
 	ToEntity(data *T) (entity *E, err error)
 	FromEntity(entity *E) (data *T, err error)
@@ -155,4 +161,52 @@ func (t *ExtendedDataTransformer[T, E]) ToEntityArray_P2P(dataArray []*T) (entit
 
 func NewExtendedDataTransformer[T, E any](transformer DataTransformer[T, E]) *ExtendedDataTransformer[T, E] {
 	return &ExtendedDataTransformer[T, E]{transformer}
+}
+
+type BaseTransformer[T, E any] struct{}
+
+func (t *BaseTransformer[T, E]) ToEntity(data *T) (*E, error) {
+	if data == nil {
+		return nil, nil
+	}
+
+	var entity E
+	if err := copier.CopyWithOption(
+		&entity, data,
+		copier.Option{
+			CaseSensitive: true,
+			DeepCopy:      true,
+			IgnoreEmpty:   true,
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to copy data to entity: %w", err)
+	}
+
+	return &entity, nil
+}
+
+func (t *BaseTransformer[T, E]) FromEntity(entity *E) (*T, error) {
+	if entity == nil {
+		return nil, nil
+	}
+
+	var data T
+	if err := copier.CopyWithOption(
+		&data, entity,
+		copier.Option{
+			CaseSensitive: true,
+			DeepCopy:      true,
+			IgnoreEmpty:   true,
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to copy entity to data: %w", err)
+	}
+
+	return &data, nil
+}
+
+func NewBaseExtendedTransformer[T, E any]() *ExtendedDataTransformer[T, E] {
+	return &ExtendedDataTransformer[T, E]{
+		DataTransformer: &BaseTransformer[T, E]{},
+	}
 }
