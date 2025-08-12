@@ -121,8 +121,8 @@ func (t *FkDataTransformer) FromEntity(entity *FkDataEntity) (*FkData, error) {
 	}, nil
 }
 
-type DataStore = GenericStore[Data, DataEntity]
-type FkDataStore = GenericStore[FkData, FkDataEntity]
+type DataStore = GenericRepository[Data, DataEntity]
+type FkDataStore = GenericRepository[FkData, FkDataEntity]
 
 func setup(t *testing.T, port int) (*DataStore, *FkDataStore, error) {
 	t.Helper()
@@ -145,13 +145,13 @@ func setup(t *testing.T, port int) (*DataStore, *FkDataStore, error) {
 	}
 
 	dataTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
-	store := NewGenericStore(r, dataTransformer)
+	store := NewGenericRepository(r, dataTransformer)
 	if err := store.AutoMigrate(context.Background()); err != nil {
 		return nil, nil, err
 	}
 
 	fkDataTransformer := entities.NewExtendedDataTransformer(&FkDataTransformer{})
-	fkStore := NewGenericStore(r, fkDataTransformer)
+	fkStore := NewGenericRepository(r, fkDataTransformer)
 	if err := fkStore.AutoMigrate(context.Background()); err != nil {
 		return nil, nil, err
 	}
@@ -304,7 +304,7 @@ func (s *GenericDataTestSuite) TearDownTest() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
+func (s *GenericDataTestSuite) TestGenericRepository_PingOK() {
 	t := s.T()
 
 	t.Run("Ping", func(t *testing.T) {
@@ -314,7 +314,7 @@ func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
 	})
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
+func (s *GenericDataTestSuite) TestGenericRepository_PingFailed() {
 	t := s.T()
 	s.store.db.Exec(`DROP TABLE IF EXISTS "fk_data"`)
 	t.Run("Ping", func(t *testing.T) {
@@ -326,7 +326,7 @@ func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
 	s.Require().NoError(s.fkStore.AutoMigrate(context.Background()))
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Create() {
+func (s *GenericDataTestSuite) TestGenericRepository_Create() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -407,7 +407,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
+func (s *GenericDataTestSuite) TestGenericRepository_CreateConflict() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -441,7 +441,7 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_CreateMany() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -531,7 +531,7 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Get() {
+func (s *GenericDataTestSuite) TestGenericRepository_Get() {
 	t := s.T()
 
 	tests := []struct {
@@ -575,7 +575,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Get() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetMany() {
 	t := s.T()
 
 	tests := []struct {
@@ -625,7 +625,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetByCriterias() {
 	t := s.T()
 
 	tests := []struct {
@@ -710,7 +710,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetManyByCriterias() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -831,7 +831,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Count() {
+func (s *GenericDataTestSuite) TestGenericRepository_Count() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -896,7 +896,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Count() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Update() {
+func (s *GenericDataTestSuite) TestGenericRepository_Update() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -941,7 +941,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Update() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Delete() {
+func (s *GenericDataTestSuite) TestGenericRepository_Delete() {
 	t := s.T()
 
 	tests := []struct {
@@ -988,7 +988,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Delete() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_DeleteMany() {
 	t := s.T()
 
 	tests := []struct {
@@ -1047,7 +1047,7 @@ func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
+func (s *GenericDataTestSuite) TestGenericRepository_Transaction() {
 	t := s.T()
 
 	createUniqueId4 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {

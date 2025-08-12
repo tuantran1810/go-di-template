@@ -1,4 +1,4 @@
-package stores
+package mysql
 
 import (
 	"context"
@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/mysql"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tuantran1810/go-di-template/internal/entities"
 	"gorm.io/gorm"
 )
@@ -119,33 +122,66 @@ func (t *FkDataTransformer) FromEntity(entity *FkDataEntity) (*FkData, error) {
 	}, nil
 }
 
-type DataStore = GenericStore[Data, DataEntity]
-type FkDataStore = GenericStore[FkData, FkDataEntity]
+type DataStore = GenericRepository[Data, DataEntity]
+type FkDataStore = GenericRepository[FkData, FkDataEntity]
 
-func setup(t *testing.T) (*DataStore, *FkDataStore, error) {
+func setup(t *testing.T, port int) (*DataStore, *FkDataStore, error) {
 	t.Helper()
-	r, err := NewRepository(RepositoryConfig{DatabasePath: ":memory:"})
-	if err != nil {
-		return nil, nil, err
-	}
 
-	if err := r.db.AutoMigrate(&Data{}); err != nil {
-		return nil, nil, err
-	}
+	config := RepositoryConfig{
+		Username:  "root",
+		Password:  "secret",
+		Protocol:  "tcp",
+		Address:   fmt.Sprintf("127.0.0.1:%d", port),
+		Database:  "test",
+		Params:    map[string]string{},
+		Collation: "utf8mb4_general_ci",
+		Loc:       time.Local,
+		TLSConfig: "",
 
-	if err := r.db.AutoMigrate(&FkData{}); err != nil {
+		Timeout:                 10 * time.Second,
+		ReadTimeout:             10 * time.Second,
+		WriteTimeout:            10 * time.Second,
+		AllowAllFiles:           false,
+		AllowCleartextPasswords: false,
+		AllowOldPasswords:       false,
+		ClientFoundRows:         false,
+		ColumnsWithAlias:        false,
+		InterpolateParams:       false,
+		MultiStatements:         false,
+		ParseTime:               true,
+
+		MaxOpenConns:           10,
+		MaxIdleConns:           10,
+		ConnMaxLifeTimeSeconds: 1800,
+	}
+	r := MustNewRepository(config)
+	if err := r.Start(context.Background()); err != nil {
 		return nil, nil, err
 	}
 
 	dataTransformer := entities.NewExtendedDataTransformer(&DataTransformer{})
+	store := NewGenericRepository(r, dataTransformer)
+	if err := store.AutoMigrate(context.Background()); err != nil {
+		return nil, nil, err
+	}
+
 	fkDataTransformer := entities.NewExtendedDataTransformer(&FkDataTransformer{})
-	store := NewGenericStore(r, dataTransformer)
-	fkStore := NewGenericStore(r, fkDataTransformer)
+	fkStore := NewGenericRepository(r, fkDataTransformer)
+	if err := fkStore.AutoMigrate(context.Background()); err != nil {
+		return nil, nil, err
+	}
+
 	return store, fkStore, nil
 }
 
-func cleanup(t *testing.T, store *DataStore) {
+func cleanup(t *testing.T, store *GenericRepository[Data, DataEntity]) {
 	t.Helper()
+
+	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`fk_data`").Error; err != nil {
+		t.Logf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
 
 	if err := store.db.Exec("DROP TABLE IF EXISTS `test`.`data`").Error; err != nil {
 		t.Logf("failed to cleanup data: %v\n", err)
@@ -155,6 +191,7 @@ func cleanup(t *testing.T, store *DataStore) {
 
 func getTestData(t *testing.T) []DataEntity {
 	t.Helper()
+
 	now := time.Now().UTC().Truncate(time.Second)
 	return []DataEntity{
 		{
@@ -189,9 +226,10 @@ func createTestData(t *testing.T, store *DataStore) ([]DataEntity, error) {
 
 type GenericDataTestSuite struct {
 	suite.Suite
-	initData []DataEntity
-	store    *DataStore
-	fkStore  *FkDataStore
+	initData  []DataEntity
+	container *mysql.MySQLContainer
+	store     *DataStore
+	fkStore   *FkDataStore
 }
 
 func (s *GenericDataTestSuite) SetupSuite() {
@@ -200,26 +238,77 @@ func (s *GenericDataTestSuite) SetupSuite() {
 		t.Errorf("failed to set time zone: %v", err)
 		return
 	}
-}
 
-func (s *GenericDataTestSuite) TearDownSuite() {
-	t := s.T()
-	cleanup(t, s.store)
-}
+	mysqlContainer, err := mysql.Run(context.Background(),
+		"mysql:lts",
+		mysql.WithDatabase("test"),
+		mysql.WithUsername("root"),
+		mysql.WithPassword("secret"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("port: 3306  MySQL Community Server - GPL").WithStartupTimeout(30*time.Second),
+			wait.ForListeningPort("3306/tcp").WithStartupTimeout(30*time.Second),
+		),
+	)
+	s.Require().NoError(err)
 
-func (s *GenericDataTestSuite) SetupTest() {
-	t := s.T()
-	store, fkStore, err := setup(t)
+	port, err := mysqlContainer.MappedPort(context.Background(), "3306")
+	s.Require().NoError(err)
+	s.Require().NotNil(port)
+
+	s.Require().NoError(err)
+	s.container = mysqlContainer
+	s.Require().NotNil(s.container)
+
+	store, fkStore, err := setup(t, port.Int())
 	s.Require().NoError(err)
 	s.store = store
 	s.Require().NotNil(s.store)
 	s.Require().NotNil(s.store.Repository)
 	s.Require().NotNil(s.store.db)
+	if err := store.db.Exec("SET @@global.time_zone = '+00:00'").Error; err != nil {
+		t.Errorf("failed to set time zone: %v", err)
+		return
+	}
 
 	s.fkStore = fkStore
 	s.Require().NotNil(s.fkStore)
 	s.Require().NotNil(s.fkStore.Repository)
 	s.Require().NotNil(s.fkStore.db)
+}
+
+func (s *GenericDataTestSuite) TearDownSuite() {
+	t := s.T()
+	cleanup(t, s.store)
+
+	if err := testcontainers.TerminateContainer(s.container); err != nil {
+		t.Errorf("failed to terminate container: %v", err)
+		return
+	}
+}
+
+func (s *GenericDataTestSuite) SetupTest() {
+	t := s.T()
+	s.Require().NoError(s.store.AutoMigrate(context.Background()))
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.fkStore.db.Exec("TRUNCATE TABLE `test`.`fk_data`").Error; err != nil {
+		t.Errorf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("TRUNCATE TABLE `test`.`data`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
 
 	data, err := createTestData(t, s.store)
 	if err != nil {
@@ -232,18 +321,29 @@ func (s *GenericDataTestSuite) SetupTest() {
 
 func (s *GenericDataTestSuite) TearDownTest() {
 	t := s.T()
-	if err := s.store.Stop(context.Background()); err != nil {
-		t.Errorf("failed to stop store: %v\n", err)
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
 
-	if err := s.fkStore.Stop(context.Background()); err != nil {
-		t.Errorf("failed to stop fkStore: %v\n", err)
+	if err := s.fkStore.db.Exec("TRUNCATE TABLE `test`.`fk_data`").Error; err != nil {
+		t.Errorf("failed to cleanup fk_data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("TRUNCATE TABLE `test`.`data`").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
+		return
+	}
+
+	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
+		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
+func (s *GenericDataTestSuite) TestGenericRepository_PingOK() {
 	t := s.T()
 
 	t.Run("Ping", func(t *testing.T) {
@@ -253,21 +353,19 @@ func (s *GenericDataTestSuite) TestGenericStore_PingOK() {
 	})
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_PingFailed() {
+func (s *GenericDataTestSuite) TestGenericRepository_PingFailed() {
 	t := s.T()
-	if err := s.store.Stop(context.Background()); err != nil {
-		t.Errorf("failed to stop store: %v\n", err)
-		return
-	}
-
+	s.fkStore.db.Exec("DROP TABLE IF EXISTS `test`.`fk_data`")
 	t.Run("Ping", func(t *testing.T) {
-		if err := s.store.Ping(context.Background()); err == nil {
+		if err := s.fkStore.Ping(context.Background()); err == nil {
 			t.Error("expected error")
 		}
 	})
+
+	s.Require().NoError(s.fkStore.AutoMigrate(context.Background()))
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Create() {
+func (s *GenericDataTestSuite) TestGenericRepository_Create() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -348,7 +446,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Create() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
+func (s *GenericDataTestSuite) TestGenericRepository_CreateConflict() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -382,7 +480,7 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateConflict() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_CreateMany() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -472,7 +570,7 @@ func (s *GenericDataTestSuite) TestGenericStore_CreateMany() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Get() {
+func (s *GenericDataTestSuite) TestGenericRepository_Get() {
 	t := s.T()
 
 	tests := []struct {
@@ -507,16 +605,14 @@ func (s *GenericDataTestSuite) TestGenericStore_Get() {
 				t.Errorf("store.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			jgot, _ := json.Marshal(got)
-			jwant, _ := json.Marshal(tt.want)
-			if !reflect.DeepEqual(jgot, jwant) {
-				t.Errorf("store.Get() = %s, want %s", string(jgot), string(jwant))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("store.Get() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetMany() {
 	t := s.T()
 
 	tests := []struct {
@@ -557,16 +653,14 @@ func (s *GenericDataTestSuite) TestGenericStore_GetMany() {
 				t.Errorf("store.GetMany() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			jgot, _ := json.Marshal(got)
-			jwant, _ := json.Marshal(tt.want)
-			if !reflect.DeepEqual(jgot, jwant) {
-				t.Errorf("store.Get() = %s, want %s", string(jgot), string(jwant))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("store.GetMany() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetByCriterias() {
 	t := s.T()
 
 	tests := []struct {
@@ -642,16 +736,14 @@ func (s *GenericDataTestSuite) TestGenericStore_GetByCriterias() {
 				t.Errorf("store.GetByCriterias() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			jgot, _ := json.Marshal(got)
-			jwant, _ := json.Marshal(tt.want)
-			if !reflect.DeepEqual(jgot, jwant) {
-				t.Errorf("store.Get() = %s, want %s", string(jgot), string(jwant))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("store.GetByCriterias() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
+func (s *GenericDataTestSuite) TestGenericRepository_GetManyByCriterias() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -772,7 +864,7 @@ func (s *GenericDataTestSuite) TestGenericStore_GetManyByCriterias() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Count() {
+func (s *GenericDataTestSuite) TestGenericRepository_Count() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -837,7 +929,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Count() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Update() {
+func (s *GenericDataTestSuite) TestGenericRepository_Update() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -882,7 +974,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Update() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Delete() {
+func (s *GenericDataTestSuite) TestGenericRepository_Delete() {
 	t := s.T()
 
 	tests := []struct {
@@ -929,7 +1021,7 @@ func (s *GenericDataTestSuite) TestGenericStore_Delete() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
+func (s *GenericDataTestSuite) TestGenericRepository_DeleteMany() {
 	t := s.T()
 
 	tests := []struct {
@@ -988,7 +1080,7 @@ func (s *GenericDataTestSuite) TestGenericStore_DeleteMany() {
 	}
 }
 
-func (s *GenericDataTestSuite) TestGenericStore_Transaction() {
+func (s *GenericDataTestSuite) TestGenericRepository_Transaction() {
 	t := s.T()
 
 	createUniqueId4 := func(ctx context.Context, txKeeper entities.Transaction) (*DataEntity, error) {

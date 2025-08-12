@@ -9,22 +9,22 @@ import (
 )
 
 type Users struct {
-	repository         IRepository
-	userStore          IUserStore
-	userAttributeStore IUserAttributeStore
-	uuidGenerator      IUUIDGenerator
+	repository              IRepository
+	userRepository          IUserRepository
+	userAttributeRepository IUserAttributeRepository
+	uuidGenerator           IUUIDGenerator
 }
 
 func NewUsersUsecase(
 	repository IRepository,
-	userStore IUserStore,
-	userAttributeStore IUserAttributeStore,
+	userRepository IUserRepository,
+	userAttributeRepository IUserAttributeRepository,
 ) *Users {
 	return &Users{
-		repository:         repository,
-		userStore:          userStore,
-		userAttributeStore: userAttributeStore,
-		uuidGenerator:      &utils.UUIDGenerator{},
+		repository:              repository,
+		userRepository:          userRepository,
+		userAttributeRepository: userAttributeRepository,
+		uuidGenerator:           &utils.UUIDGenerator{},
 	}
 }
 
@@ -34,7 +34,7 @@ func (u *Users) createUserImpl(
 	user *entities.User,
 	attributes []entities.KeyValuePair,
 ) (*entities.User, []entities.UserAttribute, error) {
-	outUser, err := u.userStore.Create(ctx, dbtx, user)
+	outUser, err := u.userRepository.Create(ctx, dbtx, user)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -52,7 +52,7 @@ func (u *Users) createUserImpl(
 		}
 	}
 
-	outAttributes, err := u.userAttributeStore.CreateMany(ctx, dbtx, atts)
+	outAttributes, err := u.userAttributeRepository.CreateMany(ctx, dbtx, atts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create user attributes: %w", err)
 	}
@@ -94,12 +94,12 @@ func (u *Users) GetUserByUsername(ctx context.Context, username string) (*entiti
 		return nil, nil, fmt.Errorf("%w - input username is empty", entities.ErrInvalid)
 	}
 
-	user, err := u.userStore.FindByUsername(timeoutCtx, nil, username)
+	user, err := u.userRepository.FindByUsername(timeoutCtx, nil, username)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find user by username: %w", err)
 	}
 
-	atts, err := u.userAttributeStore.GetByUserID(timeoutCtx, nil, user.ID)
+	atts, err := u.userAttributeRepository.GetByUserID(timeoutCtx, nil, user.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user attributes: %w", err)
 	}

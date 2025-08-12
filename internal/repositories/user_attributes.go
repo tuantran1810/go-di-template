@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"gorm.io/gorm"
 )
 
@@ -41,18 +41,18 @@ func (t *userAttributeTransformer) FromEntity(entity *entities.UserAttribute) (*
 	}, nil
 }
 
-type UserAttributeStore struct {
-	*mysql.GenericStore[UserAttribute, entities.UserAttribute]
+type UserAttributeRepository struct {
+	*mysql.GenericRepository[UserAttribute, entities.UserAttribute]
 }
 
-func NewUserAttributeStore(repository *mysql.Repository) *UserAttributeStore {
+func NewUserAttributeRepository(repository *mysql.Repository) *UserAttributeRepository {
 	transformer := entities.NewExtendedDataTransformer(&userAttributeTransformer{})
-	return &UserAttributeStore{
-		GenericStore: mysql.NewGenericStore(repository, transformer),
+	return &UserAttributeRepository{
+		GenericRepository: mysql.NewGenericRepository(repository, transformer),
 	}
 }
 
-func (s *UserAttributeStore) Start(ctx context.Context) error {
+func (s *UserAttributeRepository) Start(ctx context.Context) error {
 	log.Info("starting user attribute store")
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
@@ -66,12 +66,12 @@ func (s *UserAttributeStore) Start(ctx context.Context) error {
 	return s.Ping(timeoutCtx)
 }
 
-func (s *UserAttributeStore) Stop(_ context.Context) error {
+func (s *UserAttributeRepository) Stop(_ context.Context) error {
 	log.Info("stopping user attribute store")
 	return nil
 }
 
-func (s *UserAttributeStore) GetByUserID(
+func (s *UserAttributeRepository) GetByUserID(
 	ctx context.Context,
 	tx entities.Transaction,
 	userID uint,

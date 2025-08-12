@@ -9,22 +9,22 @@ import (
 
 const DefaultLimit = 100
 
-type GenericStore[T, E any] struct {
+type GenericRepository[T, E any] struct {
 	*Repository
 	transformer *entities.ExtendedDataTransformer[T, E]
 }
 
-func NewGenericStore[T, E any](
+func NewGenericRepository[T, E any](
 	repository *Repository,
 	transformer *entities.ExtendedDataTransformer[T, E],
-) *GenericStore[T, E] {
-	return &GenericStore[T, E]{
+) *GenericRepository[T, E] {
+	return &GenericRepository[T, E]{
 		Repository:  repository,
 		transformer: transformer,
 	}
 }
 
-func (s *GenericStore[T, E]) Ping(ctx context.Context) error {
+func (s *GenericRepository[T, E]) Ping(ctx context.Context) error {
 	var entity T
 	dbtx := s.GetTransaction(nil).WithContext(ctx)
 	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
@@ -34,12 +34,12 @@ func (s *GenericStore[T, E]) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *GenericStore[T, E]) AutoMigrate(ctx context.Context) error {
+func (s *GenericRepository[T, E]) AutoMigrate(ctx context.Context) error {
 	var entity T
 	return s.db.WithContext(ctx).AutoMigrate(&entity)
 }
 
-func (s *GenericStore[T, E]) Create(
+func (s *GenericRepository[T, E]) Create(
 	ctx context.Context,
 	tx entities.Transaction,
 	entity *E,
@@ -60,7 +60,7 @@ func (s *GenericStore[T, E]) Create(
 	return s.transformer.ToEntity(data)
 }
 
-func (s *GenericStore[T, E]) CreateMany(
+func (s *GenericRepository[T, E]) CreateMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	entityArray []E,
@@ -82,7 +82,7 @@ func (s *GenericStore[T, E]) CreateMany(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) Get(
+func (s *GenericRepository[T, E]) Get(
 	ctx context.Context,
 	tx entities.Transaction,
 	id uint,
@@ -96,7 +96,7 @@ func (s *GenericStore[T, E]) Get(
 	return s.transformer.ToEntity(&data)
 }
 
-func (s *GenericStore[T, E]) GetMany(
+func (s *GenericRepository[T, E]) GetMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	ids []uint,
@@ -114,7 +114,7 @@ func (s *GenericStore[T, E]) GetMany(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) GetByCriterias(
+func (s *GenericRepository[T, E]) GetByCriterias(
 	ctx context.Context,
 	tx entities.Transaction,
 	fields []string,
@@ -142,7 +142,7 @@ func (s *GenericStore[T, E]) GetByCriterias(
 	return s.transformer.ToEntity(&data)
 }
 
-func (s *GenericStore[T, E]) GetManyByCriterias(
+func (s *GenericRepository[T, E]) GetManyByCriterias(
 	ctx context.Context,
 	tx entities.Transaction,
 	fields []string,
@@ -176,7 +176,7 @@ func (s *GenericStore[T, E]) GetManyByCriterias(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) Count(
+func (s *GenericRepository[T, E]) Count(
 	ctx context.Context,
 	tx entities.Transaction,
 	criterias map[string]any,
@@ -196,7 +196,7 @@ func (s *GenericStore[T, E]) Count(
 	return cnt, nil
 }
 
-func (s *GenericStore[T, E]) Update(
+func (s *GenericRepository[T, E]) Update(
 	ctx context.Context,
 	tx entities.Transaction,
 	entity *E,
@@ -222,7 +222,7 @@ func (s *GenericStore[T, E]) Update(
 	return nil
 }
 
-func (s *GenericStore[T, E]) Delete(
+func (s *GenericRepository[T, E]) Delete(
 	ctx context.Context,
 	tx entities.Transaction,
 	permanent bool,
@@ -243,7 +243,7 @@ func (s *GenericStore[T, E]) Delete(
 	return nil
 }
 
-func (s *GenericStore[T, E]) DeleteMany(
+func (s *GenericRepository[T, E]) DeleteMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	permanent bool,

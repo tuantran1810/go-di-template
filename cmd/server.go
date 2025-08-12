@@ -13,8 +13,8 @@ import (
 	"github.com/tuantran1810/go-di-template/internal/client"
 	"github.com/tuantran1810/go-di-template/internal/consumer"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
-	"github.com/tuantran1810/go-di-template/internal/stores"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	stores "github.com/tuantran1810/go-di-template/internal/repositories"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"github.com/tuantran1810/go-di-template/internal/usecases"
 	"github.com/tuantran1810/go-di-template/libs/middlewares"
 	pb "github.com/tuantran1810/go-di-template/pkg/go_di_template/v1"
@@ -26,12 +26,12 @@ import (
 )
 
 var (
-	_ usecases.IRepository         = &mysql.Repository{}
-	_ usecases.IUserStore          = &stores.UserStore{}
-	_ usecases.IUserAttributeStore = &stores.UserAttributeStore{}
-	_ usecases.IMessageStore       = &stores.MessageStore{}
-	_ controllers.IUserUsecase     = &usecases.Users{}
-	_ controllers.ILoggingWorker   = &usecases.LoggingWorker{}
+	_ usecases.IRepository              = &mysql.Repository{}
+	_ usecases.IUserRepository          = &stores.UserRepository{}
+	_ usecases.IUserAttributeRepository = &stores.UserAttributeRepository{}
+	_ usecases.IMessageRepository       = &stores.MessageRepository{}
+	_ controllers.IUserUsecase          = &usecases.Users{}
+	_ controllers.ILoggingWorker        = &usecases.LoggingWorker{}
 )
 
 func newRepository(
@@ -46,11 +46,11 @@ func newRepository(
 	return r
 }
 
-func newUserStore(
+func newUserRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.UserStore {
-	s := stores.NewUserStore(repository)
+) *stores.UserRepository {
+	s := stores.NewUserRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -58,11 +58,11 @@ func newUserStore(
 	return s
 }
 
-func newUserAttributeStore(
+func newUserAttributeRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.UserAttributeStore {
-	s := stores.NewUserAttributeStore(repository)
+) *stores.UserAttributeRepository {
+	s := stores.NewUserAttributeRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -70,11 +70,11 @@ func newUserAttributeStore(
 	return s
 }
 
-func newMessageStore(
+func newMessageRepository(
 	appLifecycle fx.Lifecycle,
 	repository *mysql.Repository,
-) *stores.MessageStore {
-	s := stores.NewMessageStore(repository)
+) *stores.MessageRepository {
+	s := stores.NewMessageRepository(repository)
 	appLifecycle.Append(fx.Hook{
 		OnStart: s.Start,
 		OnStop:  s.Stop,
@@ -84,19 +84,19 @@ func newMessageStore(
 
 func newUsersUsecase(
 	repository usecases.IRepository,
-	userStore usecases.IUserStore,
-	userAttributeStore usecases.IUserAttributeStore,
+	userRepository usecases.IUserRepository,
+	userAttributeRepository usecases.IUserAttributeRepository,
 ) *usecases.Users {
-	return usecases.NewUsersUsecase(repository, userStore, userAttributeStore)
+	return usecases.NewUsersUsecase(repository, userRepository, userAttributeRepository)
 }
 
 func newLoggingWorker(
 	cfg usecases.LoggingWorkerConfig,
 	appLifecycle fx.Lifecycle,
-	messageStore usecases.IMessageStore,
+	messageRepository usecases.IMessageRepository,
 	client usecases.IClient,
 ) *usecases.LoggingWorker {
-	w := usecases.NewLoggingWorker(cfg, messageStore, client)
+	w := usecases.NewLoggingWorker(cfg, messageRepository, client)
 	appLifecycle.Append(fx.Hook{
 		OnStart: w.Start,
 		OnStop:  w.Stop,
@@ -280,16 +280,16 @@ func newServerApp() *fx.App {
 				return r
 			},
 			fx.Annotate(
-				newMessageStore,
-				fx.As(new(usecases.IMessageStore)),
+				newMessageRepository,
+				fx.As(new(usecases.IMessageRepository)),
 			),
 			fx.Annotate(
-				newUserStore,
-				fx.As(new(usecases.IUserStore)),
+				newUserRepository,
+				fx.As(new(usecases.IUserRepository)),
 			),
 			fx.Annotate(
-				newUserAttributeStore,
-				fx.As(new(usecases.IUserAttributeStore)),
+				newUserAttributeRepository,
+				fx.As(new(usecases.IUserAttributeRepository)),
 			),
 			fx.Annotate(
 				newUsersUsecase,

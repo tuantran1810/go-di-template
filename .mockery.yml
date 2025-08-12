@@ -4,13 +4,13 @@ packages:
             dir: "mocks/usecases"
             filename: "mock_{{.InterfaceName}}.go"
         interfaces:
-            IUserStore:
+            IUserRepository:
                 config:
-            IUserAttributeStore:
+            IUserAttributeRepository:
                 config:
             IUUIDGenerator:
                 config:
-            IMessageStore:
+            IMessageRepository:
                 config:
             IClient:
                 config:

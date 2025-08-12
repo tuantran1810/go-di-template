@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"gorm.io/gorm"
 )
 
@@ -14,18 +14,18 @@ type Message struct {
 	Value string
 }
 
-type MessageStore struct {
-	*mysql.GenericStore[Message, entities.Message]
+type MessageRepository struct {
+	*mysql.GenericRepository[Message, entities.Message]
 }
 
-func NewMessageStore(repository *mysql.Repository) *MessageStore {
+func NewMessageRepository(repository *mysql.Repository) *MessageRepository {
 	transformer := entities.NewBaseExtendedTransformer[Message, entities.Message]()
-	return &MessageStore{
-		GenericStore: mysql.NewGenericStore(repository, transformer),
+	return &MessageRepository{
+		GenericRepository: mysql.NewGenericRepository(repository, transformer),
 	}
 }
 
-func (s *MessageStore) Start(ctx context.Context) error {
+func (s *MessageRepository) Start(ctx context.Context) error {
 	log.Info("starting message store")
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
@@ -39,7 +39,7 @@ func (s *MessageStore) Start(ctx context.Context) error {
 	return s.Ping(timeoutCtx)
 }
 
-func (s *MessageStore) Stop(_ context.Context) error {
+func (s *MessageRepository) Stop(_ context.Context) error {
 	log.Info("stopping message store")
 	return nil
 }

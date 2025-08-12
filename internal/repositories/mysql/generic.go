@@ -1,4 +1,4 @@
-package stores
+package mysql
 
 import (
 	"context"
@@ -9,43 +9,37 @@ import (
 
 const DefaultLimit = 100
 
-type GenericStore[T, E any] struct {
+type GenericRepository[T, E any] struct {
 	*Repository
 	transformer *entities.ExtendedDataTransformer[T, E]
 }
 
-func NewGenericStore[T, E any](
+func NewGenericRepository[T, E any](
 	repository *Repository,
 	transformer *entities.ExtendedDataTransformer[T, E],
-) *GenericStore[T, E] {
-	return &GenericStore[T, E]{
+) *GenericRepository[T, E] {
+	return &GenericRepository[T, E]{
 		Repository:  repository,
 		transformer: transformer,
 	}
 }
 
-func (s *GenericStore[T, E]) Ping(ctx context.Context) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var entity T
+func (s *GenericRepository[T, E]) Ping(ctx context.Context) error {
+	var data T
 	dbtx := s.GetTransaction(nil).WithContext(ctx)
-	if err := dbtx.Limit(1).Select("id").Find(&entity).Error; err != nil {
+	if err := dbtx.Limit(1).Select("id").Find(&data).Error; err != nil {
 		return GenerateError("failed to ping database", err)
 	}
 
 	return nil
 }
 
-func (s *GenericStore[T, E]) AutoMigrate(ctx context.Context) error {
-	var entity T
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.db.WithContext(ctx).AutoMigrate(&entity)
+func (s *GenericRepository[T, E]) AutoMigrate(ctx context.Context) error {
+	var data T
+	return s.db.WithContext(ctx).AutoMigrate(&data)
 }
 
-func (s *GenericStore[T, E]) Create(
+func (s *GenericRepository[T, E]) Create(
 	ctx context.Context,
 	tx entities.Transaction,
 	entity *E,
@@ -53,9 +47,6 @@ func (s *GenericStore[T, E]) Create(
 	if entity == nil {
 		return nil, fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	data, err := s.transformer.FromEntity(entity)
 	if err != nil {
@@ -69,7 +60,7 @@ func (s *GenericStore[T, E]) Create(
 	return s.transformer.ToEntity(data)
 }
 
-func (s *GenericStore[T, E]) CreateMany(
+func (s *GenericRepository[T, E]) CreateMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	entityArray []E,
@@ -77,9 +68,6 @@ func (s *GenericStore[T, E]) CreateMany(
 	if len(entityArray) == 0 {
 		return nil, fmt.Errorf("%w - input entities is empty", entities.ErrInvalid)
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	dataArray, err := s.transformer.FromEntityArray_I2I(entityArray)
 	if err != nil {
@@ -94,14 +82,11 @@ func (s *GenericStore[T, E]) CreateMany(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) Get(
+func (s *GenericRepository[T, E]) Get(
 	ctx context.Context,
 	tx entities.Transaction,
 	id uint,
 ) (*E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	var data T
 	if err := dbtx.First(&data, id).Error; err != nil {
@@ -111,7 +96,7 @@ func (s *GenericStore[T, E]) Get(
 	return s.transformer.ToEntity(&data)
 }
 
-func (s *GenericStore[T, E]) GetMany(
+func (s *GenericRepository[T, E]) GetMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	ids []uint,
@@ -119,9 +104,6 @@ func (s *GenericStore[T, E]) GetMany(
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	var dataArray []T
@@ -132,16 +114,13 @@ func (s *GenericStore[T, E]) GetMany(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) GetByCriterias(
+func (s *GenericRepository[T, E]) GetByCriterias(
 	ctx context.Context,
 	tx entities.Transaction,
 	fields []string,
 	criterias map[string]any,
 	orderBys []string,
 ) (*E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	var data T
 	dbtx := s.
 		GetTransaction(tx).
@@ -150,7 +129,7 @@ func (s *GenericStore[T, E]) GetByCriterias(
 		dbtx = dbtx.Select(fields)
 	}
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
@@ -163,7 +142,7 @@ func (s *GenericStore[T, E]) GetByCriterias(
 	return s.transformer.ToEntity(&data)
 }
 
-func (s *GenericStore[T, E]) GetManyByCriterias(
+func (s *GenericRepository[T, E]) GetManyByCriterias(
 	ctx context.Context,
 	tx entities.Transaction,
 	fields []string,
@@ -172,13 +151,10 @@ func (s *GenericStore[T, E]) GetManyByCriterias(
 	offset int,
 	limit int,
 ) ([]E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
@@ -200,18 +176,15 @@ func (s *GenericStore[T, E]) GetManyByCriterias(
 	return s.transformer.ToEntityArray_I2I(dataArray)
 }
 
-func (s *GenericStore[T, E]) Count(
+func (s *GenericRepository[T, E]) Count(
 	ctx context.Context,
 	tx entities.Transaction,
 	criterias map[string]any,
 ) (int64, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		dbtx = dbtx.Where(fmt.Sprintf("`%s` = ?", k), v)
 	}
 
 	var data T
@@ -223,17 +196,14 @@ func (s *GenericStore[T, E]) Count(
 	return cnt, nil
 }
 
-func (s *GenericStore[T, E]) Update(
+func (s *GenericRepository[T, E]) Update(
 	ctx context.Context,
 	tx entities.Transaction,
 	entity *E,
 ) error {
 	if entity == nil {
-		return fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
+		return fmt.Errorf("%w - input data is nil", entities.ErrInvalid)
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	data, err := s.transformer.FromEntity(entity)
 	if err != nil {
@@ -252,15 +222,12 @@ func (s *GenericStore[T, E]) Update(
 	return nil
 }
 
-func (s *GenericStore[T, E]) Delete(
+func (s *GenericRepository[T, E]) Delete(
 	ctx context.Context,
 	tx entities.Transaction,
 	permanent bool,
 	id uint,
 ) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {
 		dbtx = dbtx.Unscoped()
@@ -276,7 +243,7 @@ func (s *GenericStore[T, E]) Delete(
 	return nil
 }
 
-func (s *GenericStore[T, E]) DeleteMany(
+func (s *GenericRepository[T, E]) DeleteMany(
 	ctx context.Context,
 	tx entities.Transaction,
 	permanent bool,
@@ -285,9 +252,6 @@ func (s *GenericStore[T, E]) DeleteMany(
 	if len(ids) == 0 {
 		return 0, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {

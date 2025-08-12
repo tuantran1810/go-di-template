@@ -30,10 +30,10 @@ func TestUsers_createUserImpl(t *testing.T) {
 	now := time.Now()
 
 	mockRepository := &mockRepository{}
-	mockUserStore := mockUsecases.NewMockIUserStore(t)
-	mockUserAttributeStore := mockUsecases.NewMockIUserAttributeStore(t)
+	mockUserRepository := mockUsecases.NewMockIUserRepository(t)
+	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		Create(mock.Anything, mock.Anything, &entities.User{
 			Username: "test1",
 			Password: "test1",
@@ -52,13 +52,13 @@ func TestUsers_createUserImpl(t *testing.T) {
 			Email:     &[]string{"test1@test.com"}[0],
 		}, nil)
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		Create(mock.Anything, mock.Anything, &entities.User{
 			Username: "test_failed",
 		}).
 		Return(nil, errors.New("fake error"))
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.UserAttribute{
 			{
 				UserID: 1,
@@ -103,7 +103,7 @@ func TestUsers_createUserImpl(t *testing.T) {
 			},
 		}, nil)
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.UserAttribute{
 			{
 				UserID: 1,
@@ -114,9 +114,9 @@ func TestUsers_createUserImpl(t *testing.T) {
 		Return(nil, errors.New("fake error"))
 
 	u := &Users{
-		repository:         mockRepository,
-		userStore:          mockUserStore,
-		userAttributeStore: mockUserAttributeStore,
+		repository:              mockRepository,
+		userRepository:          mockUserRepository,
+		userAttributeRepository: mockUserAttributeRepository,
 	}
 
 	tests := []struct {
@@ -268,11 +268,11 @@ func TestUsers_CreateUser(t *testing.T) {
 	now := time.Now()
 
 	mockRepository := &mockRepository{}
-	mockUserStore := mockUsecases.NewMockIUserStore(t)
-	mockUserAttributeStore := mockUsecases.NewMockIUserAttributeStore(t)
+	mockUserRepository := mockUsecases.NewMockIUserRepository(t)
+	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
 	mockUUIDGenerator := mockUsecases.NewMockIUUIDGenerator(t)
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		Create(mock.Anything, mock.Anything, &entities.User{
 			Username: "test1",
 			Password: "test1",
@@ -295,14 +295,14 @@ func TestUsers_CreateUser(t *testing.T) {
 		MustNewUUID().
 		Return("test1")
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		Create(mock.Anything, mock.Anything, &entities.User{
 			Username: "test_failed",
 			Uuid:     "test1",
 		}).
 		Return(nil, errors.New("fake error"))
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.UserAttribute{
 			{
 				UserID: 1,
@@ -347,7 +347,7 @@ func TestUsers_CreateUser(t *testing.T) {
 			},
 		}, nil)
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.UserAttribute{
 			{
 				UserID: 1,
@@ -358,10 +358,10 @@ func TestUsers_CreateUser(t *testing.T) {
 		Return(nil, errors.New("fake error"))
 
 	u := &Users{
-		repository:         mockRepository,
-		userStore:          mockUserStore,
-		userAttributeStore: mockUserAttributeStore,
-		uuidGenerator:      mockUUIDGenerator,
+		repository:              mockRepository,
+		userRepository:          mockUserRepository,
+		userAttributeRepository: mockUserAttributeRepository,
+		uuidGenerator:           mockUUIDGenerator,
 	}
 
 	tests := []struct {
@@ -509,10 +509,10 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 
-	mockUserStore := mockUsecases.NewMockIUserStore(t)
-	mockUserAttributeStore := mockUsecases.NewMockIUserAttributeStore(t)
+	mockUserRepository := mockUsecases.NewMockIUserRepository(t)
+	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		FindByUsername(mock.Anything, mock.Anything, "test1").
 		Return(&entities.User{
 			ID:        1,
@@ -525,11 +525,11 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 			Email:     &[]string{"test1@test.com"}[0],
 		}, nil)
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		FindByUsername(mock.Anything, mock.Anything, "test_failed").
 		Return(nil, errors.New("fake error"))
 
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		FindByUsername(mock.Anything, mock.Anything, "failed_atts").
 		Return(&entities.User{
 			ID:        2,
@@ -537,7 +537,7 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 			UpdatedAt: now,
 			Username:  "failed_atts",
 		}, nil)
-	mockUserStore.EXPECT().
+	mockUserRepository.EXPECT().
 		FindByUsername(mock.Anything, mock.Anything, "no_atts").
 		Return(&entities.User{
 			ID:        3,
@@ -550,7 +550,7 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 			Email:     &[]string{"no_atts@test.com"}[0],
 		}, nil)
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		GetByUserID(mock.Anything, mock.Anything, uint(1)).
 		Return([]entities.UserAttribute{
 			{
@@ -570,17 +570,17 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 				Value:     "value2",
 			},
 		}, nil)
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		GetByUserID(mock.Anything, mock.Anything, uint(2)).
 		Return(nil, errors.New("fake error"))
 
-	mockUserAttributeStore.EXPECT().
+	mockUserAttributeRepository.EXPECT().
 		GetByUserID(mock.Anything, mock.Anything, uint(3)).
 		Return([]entities.UserAttribute{}, nil)
 
 	u := &Users{
-		userStore:          mockUserStore,
-		userAttributeStore: mockUserAttributeStore,
+		userRepository:          mockUserRepository,
+		userAttributeRepository: mockUserAttributeRepository,
 	}
 
 	tests := []struct {

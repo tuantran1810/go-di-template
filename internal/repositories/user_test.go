@@ -13,10 +13,10 @@ import (
 	mysqlModule "github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tuantran1810/go-di-template/internal/entities"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 )
 
-func (s *UserStoreTestSuite) getTestData(t *testing.T) []entities.User {
+func (s *UserRepositoryTestSuite) getTestData(t *testing.T) []entities.User {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
 	return []entities.User{
@@ -38,7 +38,7 @@ func (s *UserStoreTestSuite) getTestData(t *testing.T) []entities.User {
 	}
 }
 
-func (s *UserStoreTestSuite) createTestData(t *testing.T, store *UserStore) {
+func (s *UserRepositoryTestSuite) createTestData(t *testing.T, store *UserRepository) {
 	t.Helper()
 
 	if _, err := store.CreateMany(context.Background(), nil, s.getTestData(t)); err != nil {
@@ -47,7 +47,7 @@ func (s *UserStoreTestSuite) createTestData(t *testing.T, store *UserStore) {
 	}
 }
 
-func (s *UserStoreTestSuite) setup(t *testing.T, port int) (*UserStore, error) {
+func (s *UserRepositoryTestSuite) setup(t *testing.T, port int) (*UserRepository, error) {
 	t.Helper()
 
 	config := mysql.RepositoryConfig{
@@ -83,12 +83,12 @@ func (s *UserStoreTestSuite) setup(t *testing.T, port int) (*UserStore, error) {
 	}
 
 	transformer := entities.NewExtendedDataTransformer(&userTransformer{})
-	return &UserStore{
-		GenericStore: mysql.NewGenericStore(r, transformer),
+	return &UserRepository{
+		GenericRepository: mysql.NewGenericRepository(r, transformer),
 	}, nil
 }
 
-func (s *UserStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
+func (s *UserRepositoryTestSuite) cleanup(t *testing.T, store *UserRepository) {
 	t.Helper()
 
 	if err := store.DB().Exec("DROP TABLE IF EXISTS `test`.`users`").Error; err != nil {
@@ -97,13 +97,13 @@ func (s *UserStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
 	}
 }
 
-type UserStoreTestSuite struct {
+type UserRepositoryTestSuite struct {
 	suite.Suite
-	store     *UserStore
+	store     *UserRepository
 	container *mysqlModule.MySQLContainer
 }
 
-func (s *UserStoreTestSuite) SetupSuite() {
+func (s *UserRepositoryTestSuite) SetupSuite() {
 	t := s.T()
 	if err := os.Setenv("TZ", "UTC"); err != nil {
 		t.Errorf("failed to set time zone: %v", err)
@@ -140,7 +140,7 @@ func (s *UserStoreTestSuite) SetupSuite() {
 	}
 }
 
-func (s *UserStoreTestSuite) TearDownSuite() {
+func (s *UserRepositoryTestSuite) TearDownSuite() {
 	t := s.T()
 	s.cleanup(t, s.store)
 
@@ -150,7 +150,7 @@ func (s *UserStoreTestSuite) TearDownSuite() {
 	}
 }
 
-func (s *UserStoreTestSuite) SetupTest() {
+func (s *UserRepositoryTestSuite) SetupTest() {
 	t := s.T()
 	s.Require().NoError(s.store.AutoMigrate(context.Background()))
 
@@ -162,7 +162,7 @@ func (s *UserStoreTestSuite) SetupTest() {
 	s.createTestData(t, s.store)
 }
 
-func (s *UserStoreTestSuite) TearDownTest() {
+func (s *UserRepositoryTestSuite) TearDownTest() {
 	t := s.T()
 	if err := s.store.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
@@ -170,7 +170,7 @@ func (s *UserStoreTestSuite) TearDownTest() {
 	}
 }
 
-func (s *UserStoreTestSuite) TestUserStore_FindByUsername() {
+func (s *UserRepositoryTestSuite) TestUserRepository_FindByUsername() {
 	t := s.T()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -202,16 +202,16 @@ func (s *UserStoreTestSuite) TestUserStore_FindByUsername() {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := s.store.FindByUsername(context.TODO(), nil, tt.username)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserStore.FindByUsername() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UserRepository.FindByUsername() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserStore.FindByUsername() = %v, want %v", got, tt.want)
+				t.Errorf("UserRepository.FindByUsername() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestUserStoreTestSuite(t *testing.T) {
-	suite.Run(t, new(UserStoreTestSuite))
+func TestUserRepositoryTestSuite(t *testing.T) {
+	suite.Run(t, new(UserRepositoryTestSuite))
 }

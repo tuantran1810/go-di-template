@@ -40,8 +40,8 @@ func TestLoggingWorker_Inject(t *testing.T) {
 func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 	capacity := 100
 
-	mockMessageStore := mockUsecases.NewMockIMessageStore(t)
-	mockMessageStore.EXPECT().
+	mockMessageRepository := mockUsecases.NewMockIMessageRepository(t)
+	mockMessageRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, mock.Anything).
 		Return([]entities.Message{}, nil)
 
@@ -50,7 +50,7 @@ func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 			BufferCapacity: capacity,
 			FlushInterval:  1 * time.Second,
 		},
-		mockMessageStore,
+		mockMessageRepository,
 		nil,
 	)
 
@@ -96,8 +96,8 @@ func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
 	capacity := 100000
 
-	mockMessageStore := mockUsecases.NewMockIMessageStore(t)
-	mockMessageStore.EXPECT().
+	mockMessageRepository := mockUsecases.NewMockIMessageRepository(t)
+	mockMessageRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, mock.Anything).
 		Return([]entities.Message{}, nil)
 
@@ -106,7 +106,7 @@ func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
 			BufferCapacity: capacity,
 			FlushInterval:  10 * time.Millisecond,
 		},
-		mockMessageStore,
+		mockMessageRepository,
 		nil,
 	)
 
@@ -145,8 +145,8 @@ func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
 func TestLoggingWorker_flush(t *testing.T) {
 	t.Parallel()
 
-	mockMessageStore := mockUsecases.NewMockIMessageStore(t)
-	mockMessageStore.EXPECT().
+	mockMessageRepository := mockUsecases.NewMockIMessageRepository(t)
+	mockMessageRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.Message{
 			{
 				Key:   "test1",
@@ -159,7 +159,7 @@ func TestLoggingWorker_flush(t *testing.T) {
 		}).
 		Return([]entities.Message{}, nil)
 
-	mockMessageStore.EXPECT().
+	mockMessageRepository.EXPECT().
 		CreateMany(mock.Anything, mock.Anything, []entities.Message{
 			{
 				Key:   "test_failed_1",
@@ -173,8 +173,8 @@ func TestLoggingWorker_flush(t *testing.T) {
 		Return(nil, errors.New("fake error"))
 
 	w := &LoggingWorker{
-		lock:         sync.Mutex{},
-		messageStore: mockMessageStore,
+		lock:              sync.Mutex{},
+		messageRepository: mockMessageRepository,
 	}
 
 	tests := []struct {

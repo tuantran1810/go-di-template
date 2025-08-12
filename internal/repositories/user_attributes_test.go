@@ -13,10 +13,10 @@ import (
 	mysqlModule "github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/tuantran1810/go-di-template/internal/entities"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 )
 
-func (s *UserAttributeStoreTestSuite) getTestData(t *testing.T) ([]entities.User, []entities.UserAttribute) {
+func (s *UserAttributeRepositoryTestSuite) getTestData(t *testing.T) ([]entities.User, []entities.UserAttribute) {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -56,12 +56,12 @@ func (s *UserAttributeStoreTestSuite) getTestData(t *testing.T) ([]entities.User
 		}
 }
 
-func (s *UserAttributeStoreTestSuite) createTestData(t *testing.T, userStore *UserStore, attStore *UserAttributeStore) {
+func (s *UserAttributeRepositoryTestSuite) createTestData(t *testing.T, userRepository *UserRepository, attStore *UserAttributeRepository) {
 	t.Helper()
 
 	users, atts := s.getTestData(t)
 
-	if _, err := userStore.CreateMany(context.Background(), nil, users); err != nil {
+	if _, err := userRepository.CreateMany(context.Background(), nil, users); err != nil {
 		t.Errorf("failed to create data: %v", err)
 		return
 	}
@@ -71,7 +71,7 @@ func (s *UserAttributeStoreTestSuite) createTestData(t *testing.T, userStore *Us
 	}
 }
 
-func (s *UserAttributeStoreTestSuite) setup(t *testing.T, port int) (*UserStore, *UserAttributeStore, error) {
+func (s *UserAttributeRepositoryTestSuite) setup(t *testing.T, port int) (*UserRepository, *UserAttributeRepository, error) {
 	t.Helper()
 
 	config := mysql.RepositoryConfig{
@@ -108,14 +108,14 @@ func (s *UserAttributeStoreTestSuite) setup(t *testing.T, port int) (*UserStore,
 
 	userTransformer := entities.NewExtendedDataTransformer(&userTransformer{})
 	attTransformer := entities.NewExtendedDataTransformer(&userAttributeTransformer{})
-	return &UserStore{
-			GenericStore: mysql.NewGenericStore(r, userTransformer),
-		}, &UserAttributeStore{
-			GenericStore: mysql.NewGenericStore(r, attTransformer),
+	return &UserRepository{
+			GenericRepository: mysql.NewGenericRepository(r, userTransformer),
+		}, &UserAttributeRepository{
+			GenericRepository: mysql.NewGenericRepository(r, attTransformer),
 		}, nil
 }
 
-func (s *UserAttributeStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
+func (s *UserAttributeRepositoryTestSuite) cleanup(t *testing.T, store *UserRepository) {
 	t.Helper()
 
 	if err := store.DB().Exec("DROP TABLE IF EXISTS `test`.`users`").Error; err != nil {
@@ -129,14 +129,14 @@ func (s *UserAttributeStoreTestSuite) cleanup(t *testing.T, store *UserStore) {
 	}
 }
 
-type UserAttributeStoreTestSuite struct {
+type UserAttributeRepositoryTestSuite struct {
 	suite.Suite
-	userStore *UserStore
-	attStore  *UserAttributeStore
-	container *mysqlModule.MySQLContainer
+	userRepository *UserRepository
+	attStore       *UserAttributeRepository
+	container      *mysqlModule.MySQLContainer
 }
 
-func (s *UserAttributeStoreTestSuite) SetupSuite() {
+func (s *UserAttributeRepositoryTestSuite) SetupSuite() {
 	t := s.T()
 	if err := os.Setenv("TZ", "UTC"); err != nil {
 		t.Errorf("failed to set time zone: %v", err)
@@ -163,21 +163,21 @@ func (s *UserAttributeStoreTestSuite) SetupSuite() {
 	s.container = mysqlContainer
 	s.Require().NotNil(s.container)
 
-	userStore, attStore, err := s.setup(t, port.Int())
+	userRepository, attStore, err := s.setup(t, port.Int())
 	s.Require().NoError(err)
-	s.userStore = userStore
-	s.Require().NotNil(s.userStore)
+	s.userRepository = userRepository
+	s.Require().NotNil(s.userRepository)
 	s.attStore = attStore
 	s.Require().NotNil(s.attStore)
-	if err := userStore.DB().Exec("SET @@global.time_zone = '+00:00'").Error; err != nil {
+	if err := userRepository.DB().Exec("SET @@global.time_zone = '+00:00'").Error; err != nil {
 		t.Errorf("failed to set time zone: %v", err)
 		return
 	}
 }
 
-func (s *UserAttributeStoreTestSuite) TearDownSuite() {
+func (s *UserAttributeRepositoryTestSuite) TearDownSuite() {
 	t := s.T()
-	s.cleanup(t, s.userStore)
+	s.cleanup(t, s.userRepository)
 
 	if err := testcontainers.TerminateContainer(s.container); err != nil {
 		t.Errorf("failed to terminate container: %v", err)
@@ -185,11 +185,11 @@ func (s *UserAttributeStoreTestSuite) TearDownSuite() {
 	}
 }
 
-func (s *UserAttributeStoreTestSuite) SetupTest() {
+func (s *UserAttributeRepositoryTestSuite) SetupTest() {
 	t := s.T()
-	s.Require().NoError(s.userStore.AutoMigrate(context.Background()))
+	s.Require().NoError(s.userRepository.AutoMigrate(context.Background()))
 
-	if err := s.userStore.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
+	if err := s.userRepository.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
@@ -201,12 +201,12 @@ func (s *UserAttributeStoreTestSuite) SetupTest() {
 		return
 	}
 
-	s.createTestData(t, s.userStore, s.attStore)
+	s.createTestData(t, s.userRepository, s.attStore)
 }
 
-func (s *UserAttributeStoreTestSuite) TearDownTest() {
+func (s *UserAttributeRepositoryTestSuite) TearDownTest() {
 	t := s.T()
-	if err := s.userStore.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
+	if err := s.userRepository.DB().Exec("TRUNCATE TABLE `test`.`users`").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
 		return
 	}
@@ -217,7 +217,7 @@ func (s *UserAttributeStoreTestSuite) TearDownTest() {
 	}
 }
 
-func (s *UserAttributeStoreTestSuite) TestUserAttributeStore_GetByUserID() {
+func (s *UserAttributeRepositoryTestSuite) TestUserAttributeRepository_GetByUserID() {
 	t := s.T()
 	store := s.attStore
 	_, atts := s.getTestData(t)
@@ -278,16 +278,16 @@ func (s *UserAttributeStoreTestSuite) TestUserAttributeStore_GetByUserID() {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := store.GetByUserID(context.TODO(), nil, tt.userID)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserAttributeStore.GetByUserID() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UserAttributeRepository.GetByUserID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserAttributeStore.GetByUserID() = %v, want %v", got, tt.want)
+				t.Errorf("UserAttributeRepository.GetByUserID() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestUserAttributeStoreTestSuite(t *testing.T) {
-	suite.Run(t, new(UserAttributeStoreTestSuite))
+func TestUserAttributeRepositoryTestSuite(t *testing.T) {
+	suite.Run(t, new(UserAttributeRepositoryTestSuite))
 }

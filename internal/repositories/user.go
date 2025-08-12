@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
-	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
+	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"gorm.io/gorm"
 )
 
@@ -57,18 +57,18 @@ func (t *userTransformer) FromEntity(entity *entities.User) (*User, error) {
 	}, nil
 }
 
-type UserStore struct {
-	*mysql.GenericStore[User, entities.User]
+type UserRepository struct {
+	*mysql.GenericRepository[User, entities.User]
 }
 
-func NewUserStore(repository *mysql.Repository) *UserStore {
+func NewUserRepository(repository *mysql.Repository) *UserRepository {
 	transformer := entities.NewExtendedDataTransformer(&userTransformer{})
-	return &UserStore{
-		GenericStore: mysql.NewGenericStore(repository, transformer),
+	return &UserRepository{
+		GenericRepository: mysql.NewGenericRepository(repository, transformer),
 	}
 }
 
-func (s *UserStore) Start(ctx context.Context) error {
+func (s *UserRepository) Start(ctx context.Context) error {
 	log.Info("starting user store")
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
@@ -81,12 +81,12 @@ func (s *UserStore) Start(ctx context.Context) error {
 	return s.Ping(timeoutCtx)
 }
 
-func (s *UserStore) Stop(_ context.Context) error {
+func (s *UserRepository) Stop(_ context.Context) error {
 	log.Info("stopping user store")
 	return nil
 }
 
-func (s *UserStore) FindByUsername(
+func (s *UserRepository) FindByUsername(
 	ctx context.Context,
 	tx entities.Transaction,
 	username string,

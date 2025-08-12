@@ -16,25 +16,25 @@ type LoggingWorkerConfig struct {
 
 type LoggingWorker struct {
 	LoggingWorkerConfig
-	lock         sync.Mutex
-	messageStore IMessageStore
-	client       IClient
-	buffer       []entities.Message
-	cancelCtx    context.Context
-	cancelFunc   context.CancelFunc
-	signalChan   chan struct{}
+	lock              sync.Mutex
+	messageRepository IMessageRepository
+	client            IClient
+	buffer            []entities.Message
+	cancelCtx         context.Context
+	cancelFunc        context.CancelFunc
+	signalChan        chan struct{}
 }
 
 func NewLoggingWorker(
 	config LoggingWorkerConfig,
-	store IMessageStore,
+	store IMessageRepository,
 	client IClient,
 ) *LoggingWorker {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &LoggingWorker{
 		LoggingWorkerConfig: config,
 		lock:                sync.Mutex{},
-		messageStore:        store,
+		messageRepository:   store,
 		client:              client,
 		buffer:              make([]entities.Message, 0, config.BufferCapacity),
 		cancelCtx:           cancelCtx,
@@ -53,7 +53,7 @@ func (w *LoggingWorker) flush() error {
 	w.buffer = make([]entities.Message, 0, w.BufferCapacity)
 	w.lock.Unlock()
 
-	_, err := w.messageStore.CreateMany(w.cancelCtx, nil, tmp)
+	_, err := w.messageRepository.CreateMany(w.cancelCtx, nil, tmp)
 	if err != nil {
 		w.lock.Lock()
 		w.buffer = append(tmp, w.buffer...)
