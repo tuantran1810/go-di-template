@@ -11,8 +11,8 @@ import (
 
 var log = logger.MustNamedLogger("consumer")
 
-type Processor interface {
-	Process(ctx context.Context, msg *entities.Message) error
+type ILoggingWorker interface {
+	LogAndSend(ctx context.Context, msg entities.Message) error
 }
 
 type FakeConsumerConfig struct {
@@ -21,14 +21,14 @@ type FakeConsumerConfig struct {
 
 type FakeConsumer struct {
 	FakeConsumerConfig
-	processor Processor
-	cancel    context.CancelFunc
+	loggingWorker ILoggingWorker
+	cancel        context.CancelFunc
 }
 
-func NewFakeConsumer(config FakeConsumerConfig, processor Processor) *FakeConsumer {
+func NewFakeConsumer(config FakeConsumerConfig, loggingWorker ILoggingWorker) *FakeConsumer {
 	return &FakeConsumer{
 		FakeConsumerConfig: config,
-		processor:          processor,
+		loggingWorker:      loggingWorker,
 	}
 }
 
@@ -38,12 +38,14 @@ func (c *FakeConsumer) generateContentWorker(ctx context.Context) {
 		select {
 		case <-timer.C:
 			log.Infof("message generated")
-			msg := &entities.Message{
-				Key:   gofakeit.UUID(),
-				Value: gofakeit.Sentence(20),
-			}
-			if err := c.processor.Process(ctx, msg); err != nil {
-				log.Errorf("failed to process message: %v", err)
+			if err := c.loggingWorker.LogAndSend(
+				ctx,
+				entities.Message{
+					Key:   "consumer_messages",
+					Value: gofakeit.Sentence(20),
+				},
+			); err != nil {
+				log.Error("failed to log and send message", "error", err)
 			}
 		case <-ctx.Done():
 			return
@@ -52,6 +54,7 @@ func (c *FakeConsumer) generateContentWorker(ctx context.Context) {
 }
 
 func (c *FakeConsumer) Start(_ context.Context) error {
+	log.Info("starting fake consumer")
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	go c.generateContentWorker(cancelCtx)
@@ -59,8 +62,7 @@ func (c *FakeConsumer) Start(_ context.Context) error {
 }
 
 func (c *FakeConsumer) Stop(_ context.Context) error {
-	if c.cancel != nil {
-		c.cancel()
-	}
+	log.Info("stopping fake consumer")
+	c.cancel()
 	return nil
 }

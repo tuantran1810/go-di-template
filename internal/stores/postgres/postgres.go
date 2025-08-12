@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/logger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+var log = logger.MustNamedLogger("postgres")
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -143,6 +146,7 @@ func MustNewRepository(cfg RepositoryConfig) *Repository {
 }
 
 func (r *Repository) Start(ctx context.Context) error {
+	log.Info("starting postgres repository")
 	dsn := r.RepositoryConfig.DSN()
 	db, err := gorm.Open(
 		postgres.Open(dsn),
@@ -170,6 +174,7 @@ func (r *Repository) Start(ctx context.Context) error {
 }
 
 func (r *Repository) Stop(_ context.Context) error {
+	log.Info("stopping postgres repository")
 	db, err := r.db.DB()
 	if err != nil {
 		return fmt.Errorf("%w - failed to get database connection: %w", entities.ErrDatabase, err)

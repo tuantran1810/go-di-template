@@ -9,9 +9,12 @@ import (
 	"sync"
 
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/logger"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+var log = logger.MustNamedLogger("sqlite")
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -130,10 +133,12 @@ func MustNewRepository(cfg RepositoryConfig) *Repository {
 }
 
 func (r *Repository) Start(_ context.Context) error {
+	log.Info("starting sqlite repository")
 	return nil
 }
 
 func (r *Repository) Stop(_ context.Context) error {
+	log.Info("stopping sqlite repository")
 	db, err := r.db.DB()
 	if err != nil {
 		return fmt.Errorf("%w - failed to get database connection: %w", entities.ErrDatabase, err)

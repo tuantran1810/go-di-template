@@ -12,6 +12,8 @@ packages:
                 config:
             IMessageStore:
                 config:
+            IClient:
+                config:
     github.com/tuantran1810/go-di-template/internal/controllers:
         config:
             dir: "mocks/controllers"

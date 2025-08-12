@@ -10,9 +10,12 @@ import (
 
 	goMysql "github.com/go-sql-driver/mysql"
 	"github.com/tuantran1810/go-di-template/internal/entities"
+	"github.com/tuantran1810/go-di-template/libs/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
+
+var log = logger.MustNamedLogger("mysql")
 
 func isInvalidInputError(err error) bool {
 	if err == nil {
@@ -164,6 +167,7 @@ func MustNewRepository(cfg RepositoryConfig) *Repository {
 }
 
 func (r *Repository) Start(ctx context.Context) error {
+	log.Info("starting mysql repository")
 	dsn := r.RepositoryConfig.DSN()
 	db, err := gorm.Open(
 		mysql.Open(dsn),
@@ -191,6 +195,7 @@ func (r *Repository) Start(ctx context.Context) error {
 }
 
 func (r *Repository) Stop(_ context.Context) error {
+	log.Info("stopping mysql repository")
 	db, err := r.db.DB()
 	if err != nil {
 		return fmt.Errorf("%w - failed to get database connection: %w", entities.ErrDatabase, err)

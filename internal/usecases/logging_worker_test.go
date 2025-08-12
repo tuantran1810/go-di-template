@@ -53,6 +53,7 @@ func TestLoggingWorker_StartInjectAndFlushOnStop(t *testing.T) {
 			FlushInterval:  1 * time.Second,
 		},
 		mockMessageStore,
+		nil,
 	)
 
 	t.Run("start, inject and flush on stop", func(t *testing.T) {
@@ -110,6 +111,7 @@ func TestLoggingWorker_StartInjectAndFlushOnInterval(t *testing.T) {
 			FlushInterval:  10 * time.Millisecond,
 		},
 		mockMessageStore,
+		nil,
 	)
 
 	t.Run("start, inject and flush on interval", func(t *testing.T) {
@@ -234,6 +236,65 @@ func TestLoggingWorker_flush(t *testing.T) {
 			}
 			if !reflect.DeepEqual(w.buffer, tt.expected) {
 				t.Errorf("LoggingWorker.flush() = %v, want %v", w.buffer, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLoggingWorker_LogAndSend(t *testing.T) {
+	t.Parallel()
+
+	mockClient := mockUsecases.NewMockIClient(t)
+	mockClient.EXPECT().
+		Send(mock.Anything, &entities.Message{
+			Key:   "test",
+			Value: "test",
+		}).
+		Return(nil)
+
+	mockClient.EXPECT().
+		Send(mock.Anything, &entities.Message{
+			Key:   "test_failed",
+			Value: "test_failed",
+		}).
+		Return(errors.New("fake error"))
+
+	w := &LoggingWorker{
+		LoggingWorkerConfig: LoggingWorkerConfig{
+			BufferCapacity: 100,
+			FlushInterval:  1 * time.Second,
+		},
+		lock:   sync.Mutex{},
+		buffer: []entities.Message{},
+		client: mockClient,
+	}
+	tests := []struct {
+		name    string
+		msg     entities.Message
+		wantErr bool
+	}{
+		{
+			name: "no error",
+			msg: entities.Message{
+				Key:   "test",
+				Value: "test",
+			},
+			wantErr: false,
+		},
+		{
+			name: "error",
+			msg: entities.Message{
+				Key:   "test_failed",
+				Value: "test_failed",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if err := w.LogAndSend(context.TODO(), tt.msg); (err != nil) != tt.wantErr {
+				t.Errorf("LoggingWorker.LogAndSend() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

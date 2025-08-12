@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ type LoggingWorker struct {
 	LoggingWorkerConfig
 	lock         sync.Mutex
 	messageStore IMessageStore
+	client       IClient
 	buffer       []entities.Message
 	cancelCtx    context.Context
 	cancelFunc   context.CancelFunc
@@ -26,12 +28,14 @@ type LoggingWorker struct {
 func NewLoggingWorker(
 	config LoggingWorkerConfig,
 	store IMessageStore,
+	client IClient,
 ) *LoggingWorker {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &LoggingWorker{
 		LoggingWorkerConfig: config,
 		lock:                sync.Mutex{},
 		messageStore:        store,
+		client:              client,
 		buffer:              make([]entities.Message, 0, config.BufferCapacity),
 		cancelCtx:           cancelCtx,
 		cancelFunc:          cancel,
@@ -80,14 +84,21 @@ func (w *LoggingWorker) worker() {
 }
 
 func (w *LoggingWorker) Start(ctx context.Context) error {
+	log.Info("starting logging worker")
 	go w.worker()
 	return nil
 }
 
 func (w *LoggingWorker) Stop(ctx context.Context) error {
+	log.Info("stopping logging worker")
 	close(w.signalChan)
+
+	if err := w.flush(); err != nil {
+		return fmt.Errorf("failed to flush buffer on stop: %w", err)
+	}
+
 	w.cancelFunc()
-	return w.flush()
+	return nil
 }
 
 func (w *LoggingWorker) Inject(msg entities.Message) {
@@ -98,4 +109,13 @@ func (w *LoggingWorker) Inject(msg entities.Message) {
 	if len(w.buffer) >= w.BufferCapacity {
 		w.signalChan <- struct{}{}
 	}
+}
+
+func (w *LoggingWorker) LogAndSend(ctx context.Context, msg entities.Message) error {
+	w.Inject(msg)
+	if err := w.client.Send(ctx, &msg); err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+
+	return nil
 }

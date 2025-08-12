@@ -25,10 +25,12 @@ func NewFakeClient(config FakeClientConfig) *FakeClient {
 }
 
 func (c *FakeClient) Start(_ context.Context) error {
+	log.Info("starting fake client")
 	return nil
 }
 
 func (c *FakeClient) Stop(_ context.Context) error {
+	log.Info("stopping fake client")
 	return nil
 }
 

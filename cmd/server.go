@@ -10,6 +10,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/tuantran1810/go-di-template/config"
+	"github.com/tuantran1810/go-di-template/internal/client"
+	"github.com/tuantran1810/go-di-template/internal/consumer"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
 	"github.com/tuantran1810/go-di-template/internal/stores"
 	"github.com/tuantran1810/go-di-template/internal/stores/mysql"
@@ -92,8 +94,9 @@ func newLoggingWorker(
 	cfg usecases.LoggingWorkerConfig,
 	appLifecycle fx.Lifecycle,
 	messageStore usecases.IMessageStore,
+	client usecases.IClient,
 ) *usecases.LoggingWorker {
-	w := usecases.NewLoggingWorker(cfg, messageStore)
+	w := usecases.NewLoggingWorker(cfg, messageStore, client)
 	appLifecycle.Append(fx.Hook{
 		OnStart: w.Start,
 		OnStop:  w.Stop,
@@ -106,6 +109,38 @@ func newController(
 	loggingWorker controllers.ILoggingWorker,
 ) *controllers.UserController {
 	return controllers.NewUserController(usecase, loggingWorker)
+}
+
+func newFakeClient(
+	appLifecycle fx.Lifecycle,
+	config client.FakeClientConfig,
+) *client.FakeClient {
+	c := client.NewFakeClient(config)
+	appLifecycle.Append(fx.Hook{
+		OnStart: c.Start,
+		OnStop:  c.Stop,
+	})
+	return c
+}
+
+func newFakeConsumer(
+	appLifecycle fx.Lifecycle,
+	config config.ConsumerConfig,
+	loggingWorker consumer.ILoggingWorker,
+) *consumer.FakeConsumer {
+	c := consumer.NewFakeConsumer(
+		consumer.FakeConsumerConfig{
+			PerMs: config.PerMs,
+		},
+		loggingWorker,
+	)
+
+	appLifecycle.Append(fx.Hook{
+		OnStart: c.Start,
+		OnStop:  c.Stop,
+	})
+
+	return c
 }
 
 func startGrpcServer(
@@ -232,6 +267,12 @@ func newServerApp() *fx.App {
 				BufferCapacity: cfg.LoggingWorker.BufferCapacity,
 				FlushInterval:  cfg.LoggingWorker.FlushInterval,
 			},
+			config.ConsumerConfig{
+				PerMs: cfg.Consumer.PerMs,
+			},
+			client.FakeClientConfig{
+				LatencyMs: cfg.Client.LatencyMs,
+			},
 		),
 		fx.Provide(
 			newRepository,
@@ -255,13 +296,19 @@ func newServerApp() *fx.App {
 				fx.As(new(controllers.IUserUsecase)),
 			),
 			fx.Annotate(
+				newFakeClient,
+				fx.As(new(usecases.IClient)),
+			),
+			fx.Annotate(
 				newLoggingWorker,
 				fx.As(new(controllers.ILoggingWorker)),
+				fx.As(new(consumer.ILoggingWorker)),
 			),
 			newController,
 		),
 		fx.Invoke(startGrpcServer),
 		fx.Invoke(startHttpServer),
+		fx.Invoke(newFakeConsumer),
 	)
 }
 

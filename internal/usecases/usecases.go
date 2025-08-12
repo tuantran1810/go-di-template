@@ -26,6 +26,10 @@ type IMessageStore interface {
 	CreateMany(ctx context.Context, tx entities.Transaction, messages []entities.Message) ([]entities.Message, error)
 }
 
+type IClient interface {
+	Send(ctx context.Context, msg *entities.Message) error
+}
+
 type IRepository interface {
 	RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error
 }
