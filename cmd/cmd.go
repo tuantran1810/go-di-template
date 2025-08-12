@@ -30,10 +30,10 @@ func init() {
 	}
 
 	startConsumerCmd := &cobra.Command{
-		Use:   "start-consumer",
-		Short: "Starts the consumer",
-		Long:  `Starts the consumer`,
-		Run:   startConsumer,
+		Use:   "start-cron",
+		Short: "Starts the cronjob",
+		Long:  `Starts the cronjob`,
+		Run:   startCron,
 	}
 
 	RootCmd.AddCommand(startServerCmd)
