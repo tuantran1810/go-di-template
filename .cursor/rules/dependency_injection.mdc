@@ -1,0 +1,5 @@
+---
+description: this rule is used to demonstrate how to do dependency inversion using uber/fx
+globs: cmd/*go
+alwaysApply: false
+---

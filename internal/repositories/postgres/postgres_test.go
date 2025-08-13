@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"reflect"
 	"testing"
 
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -243,6 +244,35 @@ func TestRepositoryConfig_DSN(t *testing.T) {
 		t.Run("TestRepositoryConfig_DSN", func(t *testing.T) {
 			if got := tt.config.DSN(); got != tt.want {
 				t.Errorf("RepositoryConfig.DSN() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGormTransaction_GetTransaction(t *testing.T) {
+	t.Parallel()
+	var nilptr *gorm.DB
+	tests := []struct {
+		tx   *gorm.DB
+		want any
+	}{
+		{
+			tx:   &gorm.DB{},
+			want: &gorm.DB{},
+		},
+		{
+			tx:   nil,
+			want: nilptr,
+		},
+	}
+	for _, tt := range tests {
+		t.Run("TestGormTransaction_GetTransaction", func(t *testing.T) {
+			t.Parallel()
+			tr := &GormTransaction{
+				Tx: tt.tx,
+			}
+			if got := tr.GetTransaction(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GormTransaction.GetTransaction() = %v, want %v", got, tt.want)
 			}
 		})
 	}

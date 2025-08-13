@@ -98,6 +98,18 @@ func handleTransactionError(err error) error {
 	return GenerateError("transaction error", err)
 }
 
+type GormTransaction struct {
+	Tx *gorm.DB
+}
+
+func NewGormTransaction(tx *gorm.DB) *GormTransaction {
+	return &GormTransaction{Tx: tx}
+}
+
+func (t *GormTransaction) GetTransaction() any {
+	return t.Tx
+}
+
 type RepositoryConfig struct {
 	Username  string
 	Password  string
@@ -239,7 +251,7 @@ func (r *Repository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc
 	}
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txKeeper := entities.NewGormTransaction(tx)
+		txKeeper := NewGormTransaction(tx)
 
 		for _, f := range funcs {
 			if f != nil {
