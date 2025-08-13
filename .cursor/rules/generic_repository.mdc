@@ -1,0 +1,191 @@
+---
+globs: internal/repositories/*.go,internal/repositories/**/*.go
+alwaysApply: false
+---
+
+# Overview
+- We adopt GORM as the standard ORM for interacting with SQL databases.
+- SQL operations—especially CRUD—are performed frequently in most services. Re-implementing these operations for each repository leads to a large amount of repetitive boilerplate code.
+- To address this, we created a Generic Repository implementation that wraps GORM and provides reusable CRUD functions. This reduces boilerplate, keeps repository code concise, and speeds up development.
+
+# The generic repository
+- Terminology: In our context, a repository represents a single SQL table.
+- In GORM, a table is mapped to a struct type.
+- The generic repository implementations are located at:
+  - MySQL: internal/repositories/mysql/generic.go
+  - Postgres: internal/repositories/postgres/generic.go
+  - SQLite: internal/repositories/sqlite/generic.go
+
+- The generic repository provides following functions:
+  - Ping(): check if the database is connected and the table exists
+  - AutoMigrate(): run the migration, so that the underlying table matches the schema declared by the struct
+  - Create(): create a new record using INSERT INTO
+  - CreateMany(): create multiple records in the same table using INSERT INTO
+  - Get(): find a record using the field 'id', returns error if it cannot be found
+  - GetMany(): find multiple records by ids, returns no error if nothing found
+  - GetByCriterias(): find a record using multiple criterias, returns error if it cannot be found
+  - GetManyByCriterias(): find multiple records using multiple criterias, returns no error if nothing found
+  - Count(): count number of records matching a set of criterias
+  - Update(): update a record by id, returns error if it does not exist
+  - Delete(): delete a record by id
+  - DeleteMany(): delete multiple records with a list of ids
+
+# Usage Rules
+- To take advantage of these generic repository implementations:
+  1. Declare an Entity Struct – Define the business entity in the internal/entities/ package.
+  2. Declare an Infrastructure Struct – Define the GORM model struct in internal/repositories/... that maps directly to the SQL table schema.
+  3. Implement a Transformer – Create a transformer struct that satisfies the DataTransformer[T, E] interface (internal/entities/transformer.go) to convert between infrastructure models and entity structs.
+  4. Create a Repository Constructor – Use NewGenericRepository() from the appropriate SQL driver package, passing:
+    - A physical repository connection (*Repository) from dependency injection
+    - An Extended Transformer created from your custom transformer (or BaseTransformer if no special logic is needed)
+    - Lifecycle hooks are needed, consider implement "Start(context.Context) error" and Stop(context.Context) error
+  5. Extend with Custom Methods – If business logic requires more than the provided generic methods, add them to the repository.
+
+# Example: Creating a MySQL User Repository
+
+### internal/entities/user.go
+```
+package entities
+
+import (
+	"time"
+)
+
+// 1. Declare a user entity
+type User struct {
+	ID        uint
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Username  string
+	Password  string
+	Uuid      string
+	Name      string
+	Email     *string
+}
+```
+
+### internal/repositories/user.go
+```
+package repositories
+
+import (
+	"context"
+
+	"internal/entities"
+	"internal/repositories/mysql"
+	"gorm.io/gorm"
+)
+
+// 2. Declare the infrastructure struct for table 'users'
+type User struct {
+	gorm.Model
+	Username string `gorm:"uniqueIndex,size:32"`
+	Password string
+	Uuid     string
+	Name     string
+	Email    sql.NullString
+}
+
+// 3. Implement transformer (custom because copier can't handle sql.NullString properly)
+
+type userTransformer struct{}
+
+func (t *userTransformer) ToEntity(data *User) (*entities.User, error) {
+	var email *string
+	if data.Email.Valid {
+		email = &data.Email.String
+	}
+	return &entities.User{
+		ID:        data.ID,
+		CreatedAt: data.CreatedAt,
+		UpdatedAt: data.UpdatedAt,
+		Username:  data.Username,
+		Password:  data.Password,
+		Uuid:      data.Uuid,
+		Name:      data.Name,
+		Email:     email,
+	}, nil
+}
+
+func (t *userTransformer) FromEntity(entity *entities.User) (*User, error) {
+	var email sql.NullString
+	if entity.Email != nil {
+		email = sql.NullString{String: *entity.Email, Valid: true}
+	}
+	return &User{
+		Model: gorm.Model{
+			ID:        entity.ID,
+			CreatedAt: entity.CreatedAt,
+			UpdatedAt: entity.UpdatedAt,
+		},
+		Username: entity.Username,
+		Password: entity.Password,
+		Uuid:     entity.Uuid,
+		Name:     entity.Name,
+		Email:    email,
+	}, nil
+}
+
+// 4. Create the UserRepository, along with NewUserRepository(), Start() and Stop() function
+
+type UserRepository struct {
+	*mysql.GenericRepository[User, entities.User]
+	transformer *entities.ExtendedDataTransformer[User, entities.User]
+}
+
+func NewUserRepository(repository *mysql.Repository) *UserRepository {
+	transformer := entities.NewExtendedDataTransformer(&userTransformer{})
+	return &UserRepository{
+		GenericRepository: mysql.NewGenericRepository(repository, transformer),
+		transformer:       transformer,
+	}
+}
+
+func (s *UserRepository) Start(ctx context.Context) error {
+	log.Info("starting user store")
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	err := s.AutoMigrate(timeoutCtx)
+	if err != nil {
+		return err
+	}
+
+	return s.Ping(timeoutCtx)
+}
+
+func (s *UserRepository) Stop(_ context.Context) error {
+	log.Info("stopping user store")
+	return nil
+}
+
+// 5. Custom method example
+
+func (s *UserRepository) FindByUsername(
+	ctx context.Context,
+	tx entities.Transaction,
+	username string,
+) (*entities.User, error) {
+	if username == "" {
+		return nil, fmt.Errorf("%w - input username is empty", entities.ErrInvalid)
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	user, err := s.GetByCriterias(
+		timeoutCtx, tx,
+		nil,
+		map[string]any{"username": username},
+		[]string{"id"},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+```
+
+

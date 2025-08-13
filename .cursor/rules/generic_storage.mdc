@@ -1,4 +1,0 @@
----
-globs: internal/repositories/*.go,internal/repositories/**/*.go
-alwaysApply: false
----
