@@ -1,8 +1,65 @@
 ---
-description: this rule is used to describe how this project support data transformation
+description: this rule is used to describe how this project supports data transformation
 alwaysApply: true
 ---
 
 # Overview
+- In a Clean Architecture project, frequent data transformation is required to convert between Entity objects and infrastructure-specific objects (DTOs, DB models, API payloads, etc.).
+- This project provides a generic data transformation utility to reduce repetitive boilerplate and simplify bidirectional conversions.
+- This guide explains how to use the provided **base transformer** and **extended transformer** utilities effectively within the project template.
 
+# The basic transformer interface
+- The core interface is declared in internal/entities/transformer.go
 
+```
+type DataTransformer[T, E any] interface {
+	ToEntity(data *T) (entity *E, err error) // convert from a data type T to an entity type E
+	FromEntity(entity *E) (data *T, err error) // convert from an entity type E to a data type T
+}
+```
+- Rules for Implementations
+  - A transformer must implement DataTransformer[T, E] to be compatible with the project’s transformation utilities.
+  - For simple, field-matching transformations, use the provided BaseTransformer, which relies on the copier library to copy between structs with identical field names.
+  - For complex transformations (e.g., computed fields, nested mapping, change of field name or data type), implement a custom transformer struct that satisfies the interface.
+
+# The extended transformer
+- The Extended Transformer builds on any DataTransformer implementation to support array/slice transformations in both pointer and value forms.
+- The implementation is located in internal/entities/transformer.go
+
+- Provided Utility Functions:
+  - Entity to Data:
+    - FromEntity(): the basic one, from an entity to a data object
+    - FromEntityArray_I2I(): From Entity instance Array to Data instance Array
+    - FromEntityArray_I2P(): From Entity instance Array to Data pointer Array
+    - FromEntityArray_P2I(): From Entity pointer Array to Data instance Array
+    - FromEntityArray_P2P(): From Entity pointer Array to Data pointer Array
+  - Data to Entity:
+    - ToEntity(): the basic one, from a data object to an entity
+    - ToEntityArray_I2I(): From Data instance Array to Entity instance Array
+    - ToEntityArray_I2P(): From Entity instance Array to Data pointer Array
+    - ToEntityArray_P2I(): From Data pointer Array to Entity instance Array
+    - ToEntityArray_P2P(): From Data pointer Array to Entity pointer Array
+
+- Creating an Extended Transformer:
+  - Use:
+  ```
+  extTransformer := NewExtendedDataTransformer(myTransformer)
+  // myTransformer must satisfy DataTransformer[T, E]
+  ```
+  - Quick creation with the BaseTransformer:
+  ```
+  extTransformer := NewBaseExtendedTransformer[T, E]()
+  ```
+# Clean Architecture Usage Rules
+- The DataTransformer and its Extended Transformer are designed for converting data between the Infrastructure Layer and the Use Case Layer—specifically, transforming infrastructure-specific types <-> entity types.
+- To strictly follow Clean Architecture, all such conversions must happen inside the Infrastructure Layer, since the Use Case Layer must remain unaware of infrastructure-specific types.
+- Transformers can also be used within the same layer to convert between different internal types. This is perfectly acceptable and can significantly reduce repetitive boilerplate code.
+
+# Best practices
+- Prefer BaseTransformer unless custom mapping logic is required.
+- Always centralize transformation logic in dedicated transformer structs—do not scatter it across repositories, controllers, or use cases.
+- For slices, use slice-to-slice conversions via the Extended Transformer instead of manual loops.
+- Keep transformations stateless and idempotent.
+- For complex, nested structures, use nested transformers:
+  - An outer transformer delegates the transformation of nested fields to one or more inner transformers.
+  - This keeps the logic modular, testable, and reusable.
