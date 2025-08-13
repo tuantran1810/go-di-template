@@ -59,12 +59,14 @@ func (t *userTransformer) FromEntity(entity *entities.User) (*User, error) {
 
 type UserRepository struct {
 	*mysql.GenericRepository[User, entities.User]
+	transformer *entities.ExtendedDataTransformer[User, entities.User]
 }
 
 func NewUserRepository(repository *mysql.Repository) *UserRepository {
 	transformer := entities.NewExtendedDataTransformer(&userTransformer{})
 	return &UserRepository{
 		GenericRepository: mysql.NewGenericRepository(repository, transformer),
+		transformer:       transformer,
 	}
 }
 

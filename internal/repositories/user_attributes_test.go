@@ -110,6 +110,7 @@ func (s *UserAttributeRepositoryTestSuite) setup(t *testing.T, port int) (*UserR
 	attTransformer := entities.NewExtendedDataTransformer(&userAttributeTransformer{})
 	return &UserRepository{
 			GenericRepository: mysql.NewGenericRepository(r, userTransformer),
+			transformer:       userTransformer,
 		}, &UserAttributeRepository{
 			GenericRepository: mysql.NewGenericRepository(r, attTransformer),
 			transformer:       attTransformer,
