@@ -18,4 +18,9 @@ service UserService {
             get: "/api/internal/v1/users/{username}"
         };
     }
+    rpc GetAttributesByUsername(GetAttributesByUsernameRequest) returns (GetAttributesByUsernameResponse) {
+        option (google.api.http) = {
+            get: "/api/internal/v1/users/{username}/attributes"
+        };
+    }
 }

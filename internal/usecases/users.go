@@ -106,3 +106,19 @@ func (u *Users) GetUserByUsername(ctx context.Context, username string) (*entiti
 
 	return user, atts, nil
 }
+
+func (u *Users) GetAttributesByUsername(ctx context.Context, username string) ([]entities.UserAttribute, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	if username == "" {
+		return nil, fmt.Errorf("%w - input username is empty", entities.ErrInvalid)
+	}
+
+	atts, err := u.userAttributeRepository.GetManyByUserName(timeoutCtx, nil, username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user attributes: %w", err)
+	}
+
+	return atts, nil
+}

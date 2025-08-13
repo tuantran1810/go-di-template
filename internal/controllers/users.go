@@ -113,3 +113,31 @@ func (c *UserController) GetUserByUsername(
 		Attributes: pbAttributes,
 	}, nil
 }
+
+func (c *UserController) GetAttributesByUsername(
+	ctx context.Context,
+	req *pb.GetAttributesByUsernameRequest,
+) (*pb.GetAttributesByUsernameResponse, error) {
+	if err := protovalidate.Validate(req); err != nil {
+		return nil, fmt.Errorf("%w - err: %w", entities.ErrInvalid, err)
+	}
+
+	atts, err := c.userUsecase.GetAttributesByUsername(ctx, req.Username)
+	if err != nil {
+		return nil, fmt.Errorf("%w - cannot get user attributes by username, err: %w", entities.ErrInvalid, err)
+	}
+
+	pbAttributes, err := c.userAttributeTransformer.FromEntityArray_I2P(atts)
+	if err != nil {
+		return nil, fmt.Errorf("%w - cannot transform to pb user attributes, err: %w", entities.ErrInvalid, err)
+	}
+
+	c.loggingWorker.Inject(entities.Message{
+		Key:   "user_attributes_get",
+		Value: fmt.Sprintf("username: %s", req.Username),
+	})
+
+	return &pb.GetAttributesByUsernameResponse{
+		Attributes: pbAttributes,
+	}, nil
+}

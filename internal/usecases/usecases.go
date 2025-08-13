@@ -20,6 +20,7 @@ type IUserRepository interface {
 type IUserAttributeRepository interface {
 	CreateMany(ctx context.Context, tx entities.Transaction, userAttributes []entities.UserAttribute) ([]entities.UserAttribute, error)
 	GetByUserID(ctx context.Context, tx entities.Transaction, userID uint) ([]entities.UserAttribute, error)
+	GetManyByUserName(ctx context.Context, tx entities.Transaction, userName string) ([]entities.UserAttribute, error)
 }
 
 type IMessageRepository interface {

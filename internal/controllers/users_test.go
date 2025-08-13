@@ -351,3 +351,141 @@ func TestUserController_GetUserByUsername(t *testing.T) {
 		})
 	}
 }
+
+func TestUserController_GetAttributesByUsername(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC()
+
+	mockUserUsecase := mocks.NewMockIUserUsecase(t)
+	mockUserUsecase.EXPECT().
+		GetAttributesByUsername(mock.Anything, "test1").
+		Return([]entities.UserAttribute{
+			{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key1",
+				Value:     "value1",
+			},
+			{
+				ID:        2,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key2",
+				Value:     "value2",
+			},
+		}, nil)
+
+	mockUserUsecase.EXPECT().
+		GetAttributesByUsername(mock.Anything, "test_failed").
+		Return(nil, fmt.Errorf("fake error"))
+
+	mockUserUsecase.EXPECT().
+		GetAttributesByUsername(mock.Anything, "no_atts").
+		Return([]entities.UserAttribute{}, nil)
+
+	mockLoggingWorker := mocks.NewMockILoggingWorker(t)
+	mockLoggingWorker.EXPECT().
+		Inject(entities.Message{
+			Key:   "user_attributes_get",
+			Value: "username: test1",
+		}).
+		Return()
+
+	mockLoggingWorker.EXPECT().
+		Inject(entities.Message{
+			Key:   "user_attributes_get",
+			Value: "username: no_atts",
+		}).
+		Return()
+
+	c := &UserController{
+		userUsecase:              mockUserUsecase,
+		loggingWorker:            mockLoggingWorker,
+		userTransformer:          transformers.NewPbUserTransformer(),
+		keyValuePairTransformer:  entities.NewBaseExtendedTransformer[pb.KeyValuePair, entities.KeyValuePair](),
+		userAttributeTransformer: transformers.NewPbUserAttributesTransformer(),
+	}
+
+	tests := []struct {
+		name    string
+		req     *pb.GetAttributesByUsernameRequest
+		want    *pb.GetAttributesByUsernameResponse
+		wantErr bool
+	}{
+		{
+			name: "success",
+			req: &pb.GetAttributesByUsernameRequest{
+				Username: "test1",
+			},
+			want: &pb.GetAttributesByUsernameResponse{
+				Attributes: []*pb.UserAttribute{
+					{
+						Id:        1,
+						CreatedAt: utils.ToTimepb(now),
+						UpdatedAt: utils.ToTimepb(now),
+						UserId:    1,
+						Key:       "key1",
+						Value:     "value1",
+					},
+					{
+						Id:        2,
+						CreatedAt: utils.ToTimepb(now),
+						UpdatedAt: utils.ToTimepb(now),
+						UserId:    1,
+						Key:       "key2",
+						Value:     "value2",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid request",
+			req: &pb.GetAttributesByUsernameRequest{
+				Username: "this is a very long username, so that it should fail validation, this is a very long username, so that it should fail validation.",
+			},
+			wantErr: true,
+			want:    nil,
+		},
+		{
+			name: "failed to get user attributes by username",
+			req: &pb.GetAttributesByUsernameRequest{
+				Username: "test_failed",
+			},
+			wantErr: true,
+			want:    nil,
+		},
+		{
+			name: "no attributes",
+			req: &pb.GetAttributesByUsernameRequest{
+				Username: "no_atts",
+			},
+			want: &pb.GetAttributesByUsernameResponse{
+				Attributes: []*pb.UserAttribute{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty username",
+			req: &pb.GetAttributesByUsernameRequest{
+				Username: "",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := c.GetAttributesByUsername(context.TODO(), tt.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UserController.GetAttributesByUsername() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("UserController.GetAttributesByUsername() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

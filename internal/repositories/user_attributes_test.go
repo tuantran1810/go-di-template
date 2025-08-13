@@ -112,6 +112,7 @@ func (s *UserAttributeRepositoryTestSuite) setup(t *testing.T, port int) (*UserR
 			GenericRepository: mysql.NewGenericRepository(r, userTransformer),
 		}, &UserAttributeRepository{
 			GenericRepository: mysql.NewGenericRepository(r, attTransformer),
+			transformer:       attTransformer,
 		}, nil
 }
 
@@ -283,6 +284,120 @@ func (s *UserAttributeRepositoryTestSuite) TestUserAttributeRepository_GetByUser
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("UserAttributeRepository.GetByUserID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *UserAttributeRepositoryTestSuite) TestUserAttributeRepository_CountByUserName() {
+	t := s.T()
+	store := s.attStore
+
+	tests := []struct {
+		name     string
+		userName string
+		want     int64
+		wantErr  bool
+	}{
+		{
+			name:     "user1",
+			userName: "user1",
+			want:     2,
+			wantErr:  false,
+		},
+		{
+			name:     "user2",
+			userName: "user2",
+			want:     1,
+			wantErr:  false,
+		},
+		{
+			name:     "not found",
+			userName: "user10",
+			want:     0,
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.CountByUserName(context.TODO(), nil, tt.userName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UserAttributeRepository.CountByUserName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("UserAttributeRepository.CountByUserName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *UserAttributeRepositoryTestSuite) TestUserAttributeRepository_GetManyByUserName() {
+	t := s.T()
+	store := s.attStore
+	_, atts := s.getTestData(t)
+	now := atts[0].CreatedAt
+
+	tests := []struct {
+		name     string
+		userName string
+		want     []entities.UserAttribute
+		wantErr  bool
+	}{
+		{
+			name:     "user1",
+			userName: "user1",
+			want: []entities.UserAttribute{
+				{
+					ID:        1,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "test1",
+					Value:     "test1",
+				},
+				{
+					ID:        2,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "test2",
+					Value:     "test2",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "user2",
+			userName: "user2",
+			want: []entities.UserAttribute{
+				{
+					ID:        3,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    2,
+					Key:       "test3",
+					Value:     "test3",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "not found",
+			userName: "user10",
+			want:     []entities.UserAttribute{},
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.GetManyByUserName(context.TODO(), nil, tt.userName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UserAttributeRepository.GetManyByUserName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("UserAttributeRepository.GetManyByUserName() = %v, want %v", got, tt.want)
 			}
 		})
 	}

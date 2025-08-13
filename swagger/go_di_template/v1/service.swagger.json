@@ -77,6 +77,36 @@
           "UserService"
         ]
       }
+    },
+    "/api/internal/v1/users/{username}/attributes": {
+      "get": {
+        "operationId": "UserService_GetAttributesByUsername",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetAttributesByUsernameResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "UserService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -129,6 +159,18 @@
         "user": {
           "$ref": "#/definitions/v1User"
         },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1UserAttribute"
+          }
+        }
+      }
+    },
+    "v1GetAttributesByUsernameResponse": {
+      "type": "object",
+      "properties": {
         "attributes": {
           "type": "array",
           "items": {

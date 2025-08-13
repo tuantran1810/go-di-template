@@ -677,3 +677,105 @@ func TestUsers_GetUserByUsername(t *testing.T) {
 		})
 	}
 }
+
+func TestUsers_GetAttributesByUsername(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+
+	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
+
+	mockUserAttributeRepository.EXPECT().
+		GetManyByUserName(mock.Anything, mock.Anything, "test1").
+		Return([]entities.UserAttribute{
+			{
+				ID:        1,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key1",
+				Value:     "value1",
+			},
+			{
+				ID:        2,
+				CreatedAt: now,
+				UpdatedAt: now,
+				UserID:    1,
+				Key:       "key2",
+				Value:     "value2",
+			},
+		}, nil)
+
+	mockUserAttributeRepository.EXPECT().
+		GetManyByUserName(mock.Anything, mock.Anything, "no_atts").
+		Return([]entities.UserAttribute{}, nil)
+
+	mockUserAttributeRepository.EXPECT().
+		GetManyByUserName(mock.Anything, mock.Anything, "failed_atts").
+		Return(nil, errors.New("fake error"))
+
+	u := &Users{
+		userAttributeRepository: mockUserAttributeRepository,
+	}
+
+	tests := []struct {
+		name     string
+		username string
+		want     []entities.UserAttribute
+		wantErr  bool
+	}{
+		{
+			name:     "success",
+			username: "test1",
+			want: []entities.UserAttribute{
+				{
+					ID:        1,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "key1",
+					Value:     "value1",
+				},
+				{
+					ID:        2,
+					CreatedAt: now,
+					UpdatedAt: now,
+					UserID:    1,
+					Key:       "key2",
+					Value:     "value2",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "failed to get user attributes",
+			username: "failed_atts",
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "no attributes",
+			username: "no_atts",
+			want:     []entities.UserAttribute{},
+			wantErr:  false,
+		},
+		{
+			name:     "empty username",
+			username: "",
+			want:     nil,
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := u.GetAttributesByUsername(context.TODO(), tt.username)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Users.GetAttributesByUsername() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Users.GetAttributesByUsername() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

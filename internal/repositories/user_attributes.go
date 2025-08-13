@@ -43,12 +43,14 @@ func (t *userAttributeTransformer) FromEntity(entity *entities.UserAttribute) (*
 
 type UserAttributeRepository struct {
 	*mysql.GenericRepository[UserAttribute, entities.UserAttribute]
+	transformer *entities.ExtendedDataTransformer[UserAttribute, entities.UserAttribute]
 }
 
 func NewUserAttributeRepository(repository *mysql.Repository) *UserAttributeRepository {
 	transformer := entities.NewExtendedDataTransformer(&userAttributeTransformer{})
 	return &UserAttributeRepository{
 		GenericRepository: mysql.NewGenericRepository(repository, transformer),
+		transformer:       transformer,
 	}
 }
 
@@ -86,4 +88,49 @@ func (s *UserAttributeRepository) GetByUserID(
 		[]string{"id"},
 		0, 0,
 	)
+}
+
+func (s *UserAttributeRepository) CountByUserName(
+	ctx context.Context,
+	dbtx entities.Transaction,
+	userName string,
+) (int64, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	tx := s.GenericRepository.GetTransaction(dbtx).WithContext(timeoutCtx)
+
+	var count int64
+	if err := tx.
+		Model(&UserAttribute{}).
+		Joins("LEFT JOIN users ON users.id = user_attributes.user_id").
+		Where("users.username = ?", userName).
+		Count(&count).
+		Error; err != nil {
+		return 0, mysql.GenerateError("failed to count user attributes", err)
+	}
+
+	return count, nil
+}
+
+func (s *UserAttributeRepository) GetManyByUserName(
+	ctx context.Context,
+	dbtx entities.Transaction,
+	userName string,
+) ([]entities.UserAttribute, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	tx := s.GenericRepository.GetTransaction(dbtx).WithContext(timeoutCtx)
+
+	var data []UserAttribute
+	if err := tx.
+		Joins("LEFT JOIN users ON users.id = user_attributes.user_id").
+		Where("users.username = ?", userName).
+		Find(&data).
+		Error; err != nil {
+		return nil, mysql.GenerateError("failed to find user attributes", err)
+	}
+
+	return s.transformer.ToEntityArray_I2I(data)
 }

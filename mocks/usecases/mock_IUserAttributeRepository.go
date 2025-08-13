@@ -153,3 +153,61 @@ func (_c *MockIUserAttributeRepository_GetByUserID_Call) RunAndReturn(run func(c
 	_c.Call.Return(run)
 	return _c
 }
+
+// GetManyByUserName provides a mock function for the type MockIUserAttributeRepository
+func (_mock *MockIUserAttributeRepository) GetManyByUserName(ctx context.Context, tx entities.Transaction, userName string) ([]entities.UserAttribute, error) {
+	ret := _mock.Called(ctx, tx, userName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetManyByUserName")
+	}
+
+	var r0 []entities.UserAttribute
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, string) ([]entities.UserAttribute, error)); ok {
+		return returnFunc(ctx, tx, userName)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Transaction, string) []entities.UserAttribute); ok {
+		r0 = returnFunc(ctx, tx, userName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entities.UserAttribute)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Transaction, string) error); ok {
+		r1 = returnFunc(ctx, tx, userName)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockIUserAttributeRepository_GetManyByUserName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetManyByUserName'
+type MockIUserAttributeRepository_GetManyByUserName_Call struct {
+	*mock.Call
+}
+
+// GetManyByUserName is a helper method to define mock.On call
+//   - ctx
+//   - tx
+//   - userName
+func (_e *MockIUserAttributeRepository_Expecter) GetManyByUserName(ctx interface{}, tx interface{}, userName interface{}) *MockIUserAttributeRepository_GetManyByUserName_Call {
+	return &MockIUserAttributeRepository_GetManyByUserName_Call{Call: _e.mock.On("GetManyByUserName", ctx, tx, userName)}
+}
+
+func (_c *MockIUserAttributeRepository_GetManyByUserName_Call) Run(run func(ctx context.Context, tx entities.Transaction, userName string)) *MockIUserAttributeRepository_GetManyByUserName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(entities.Transaction), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockIUserAttributeRepository_GetManyByUserName_Call) Return(userAttributes []entities.UserAttribute, err error) *MockIUserAttributeRepository_GetManyByUserName_Call {
+	_c.Call.Return(userAttributes, err)
+	return _c
+}
+
+func (_c *MockIUserAttributeRepository_GetManyByUserName_Call) RunAndReturn(run func(ctx context.Context, tx entities.Transaction, userName string) ([]entities.UserAttribute, error)) *MockIUserAttributeRepository_GetManyByUserName_Call {
+	_c.Call.Return(run)
+	return _c
+}
