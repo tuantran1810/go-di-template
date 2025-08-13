@@ -4,13 +4,122 @@ globs:
 alwaysApply: true
 ---
 
-### Overview:
-- This project was structured strictly with **Clean Architecture**, with:
-  - Entity: This layer is the core business of the project, and it must not yeild any dependencies to another package. It is mainly used to stores business objects (structs) and basic functions to operate on them. Entity is widely known and used by all layers in the project, and play the intermediary role to communicate between layers. A layer can have its own data structure, but it should expose functions that receive entity objects and also return entity objects instead of its own data structure. The transformation between data types must be performed inside that layer. Importing infrastructure/framework packages to Entity is prohibited, only utility packages are allowed
-  - Usecase: this is where the important business logic is written. This layer must be isolated strictly from the infrastructure, or any kind of framework. All the dependencies must be abstracted and injected to the Usecase using dependency inversion technique. Unit test is important for this layer, so functions should be short enough (less than 100 lines if possible), all infrastructure dependencies must be abstracted with interfaces so that it's easy to generate mocks. Importing infrastructure/framework package to Usecase is prohibited. Usecase is only allowed to import Entity and utility packages
-  - Repository: Data access layer of the project. This layer knows all about the databases we are using, including all kinds of storages (such as MySQL, Postgres, Sqlite, Redis, Mongo, etc.). It executes
+# Overview:
+This project follows a strict Clean Architecture structure with four layers:
 
+### Entity Layer
+  - Location: internal/entities/
+  - Contains all core business entities (structs) and basic operations on them.
+  - No dependencies on other layers.
 
-- Inside the /internal folder, the code layout looks like:
-  - clients/: external clients to call to other services, including http, gRPC and any kind of protocols, including producer clients to any queue/messaging infrastructures like Google Pubsub, Kafka, RabbitMQ, MQTT, etc.. These clients should be treated as a repository
-  - consumers/: consumer clients, to trigger consuming events. It could be 
+### Use Case Layer
+  - Location: internal/usecases/
+  - Contains all application-specific business logic.
+  - Orchestrates the flow of data between Entities and other layers.
+  - Depends only on the Entity layer and abstracted interfaces.
+
+### Infrastructure Layer
+  - Location: split into multiple subfolders:
+    - **internal/clients/** – Callable clients actively used by the service (active outbound connectors), such as HTTP clients, gRPC clients, Pub/Sub or message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+    - **internal/consumers/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+    - **internal/controllers/** – Server implementations for gRPC or HTTP APIs.
+    - **internal/repositories/** – Storage drivers and database query logic for interacting with databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
+
+### Interface Adapter Layer
+  - No dedicated folder for this layer.
+  - For simplicity, its responsibilities are embedded within the Infrastructure layer.
+  - In addition to interacting with external systems, Infrastructure code also performs transformations between Entity objects and external data formats.
+
+# Rules for Entity layer
+### Purpose:
+  - Represents the core business logic of the project.
+  - Must not depend on any other project package.
+
+### Contents
+  - Define business objects as structs.
+  - Implement only simple functions that operate on these structs.
+
+### Usage
+  - Accessible and usable by all layers.
+  - Serves as the common data model for inter-layer communication.
+
+### Data Handling
+  - Each layer may have its own internal data structures.
+  - Public functions in other layers must accept and return entity objects—not layer-specific types.
+  - Data transformation between layer-specific types and entity objects must occur inside the layer that owns the layer-specific type.
+
+### Dependencies
+  - Importing infrastructure or framework packages into the Entity layer is prohibited, including packages from Usecase, Repository and Controller layer.
+  - Only import generic utility packages (e.g., time, strings, errors).
+  - External utility packages from the internet are allowed only if they perform pure, simple computation or data transformation. Examples:
+    - Copier: github.com/jinzhu/copier
+    - Map to Struct transformation: github.com/mitchellh/mapstructure
+    - Data serialization: github.com/json-iterator/go
+
+# Rules for Use case layer
+### Purpose
+- Contains the core application-specific business logic.
+- Defines how the system features behave using Entity objects.
+- Orchestrates the flow of data between Entities and other layers.
+
+### Isolation
+- Must be completely independent from infrastructure, frameworks, and external libraries (except generic utilities business computation libraries).
+- Allowed imports:
+  - Entity layer packages.
+  - Utility packages (e.g., time, errors, strings).
+  - External utility packages from the internet that perform pure computation or data transformation. For example:
+    - Copier library: github.com/jinzhu/copier
+    - Map - Struct transformation: github.com/mitchellh/mapstructure
+    - Data serializer: github.com/json-iterator/go
+  - Internal/external packages for business purposes that perform pure or advanced computation. For example:
+    - Image processing: github.com/h2non/bimg
+    - Data compression: github.com/klauspost/compress
+    - Machine Learning implementations: github.com/sjwhitworth/golearn 
+
+### Dependency Management
+- All external dependencies (e.g., database, external API, message broker) must be abstracted behind interfaces.
+- Concrete implementations must be injected into the Use Case layer via Dependency Inversion.
+
+### Testing
+- Unit tests are mandatory for this layer.
+- Functions should be short and focused (≤ 100 lines recommended).
+- All infrastructure dependencies must be mocked via the defined interfaces to allow isolated testing.
+
+### Data Handling
+- Public functions must accept and return Entity objects.
+- Transformations between Entity objects and other formats occur outside the Use Case layer.
+
+### Prohibited Actions
+- Importing infrastructure or framework packages directly into the Use Case layer.
+- Embedding infrastructure-specific code (e.g., SQL queries, HTTP clients, ORM logic).
+
+# Rules for Infrastructure & Interface Adapter Layer
+This combined layer contains all code that interacts with external systems and adapts data between the Use Case layer and those systems. It implements interfaces defined in the Use Case layer, performs necessary data transformations, and contains all technical details such as frameworks, servers, and clients.
+
+### Contents:
+  - Clients – Active outbound connectors such as HTTP clients, gRPC clients, Pub/Sub producers, and message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+  - Consumers – Inbound connectors triggered by incoming messages or events from external systems.
+  - Controllers – Server-side implementations of gRPC or HTTP APIs.
+  - Repositories – Storage drivers and query logic for databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
+  - Data Mapping Logic – Converting between Entity objects and external data formats.
+
+### Dependency Rules:
+  - May depend on Entities.
+  - Can import generic utility packages (e.g., time, strings, errors).
+  - External utility packages from the internet are allowed only if they perform pure computation or data transformation. For example:
+    - Copier library: github.com/jinzhu/copier
+    - Map - Struct transformation: github.com/mitchellh/mapstructure
+    - Data serializer: github.com/json-iterator/go
+  - May use external frameworks/libraries as needed (ORMs, HTTP frameworks, gRPC, etc.).
+  - Must not implement business logic — this belongs in the Use Case layer.
+  - All dependencies on external systems must go through interfaces defined in the Use Case layer.
+  - In specific cases, this layer may import packages from the Use Case layer, but this should be avoided to prevent dependency coupling. Where possible, decouple via Dependency Inversion.
+
+### Data Transformation Rules:
+  - Incoming data (from HTTP requests, gRPC calls, DB rows, messages) must be converted into Entity objects before passing to Use Cases.
+  - Outgoing data (from Use Cases) must be converted from Entity objects into external formats before sending to external systems.
+  - Transformation logic must remain inside this layer.
+
+### Testing:
+  - Should have integration tests and, where feasible, unit tests to ensure correct communication with external systems.
+  - May use mocks for external dependencies when appropriate.
