@@ -50,13 +50,19 @@ alwaysApply: false
   - For each component (class in diagram, not invoked directly)
     - If a constructor exists: call it.
     - Else: init struct directly.
-  - Create a new{componentA}() function in the same file to initialize the component A. Remember to connect the OnStart() and OnStop() hook of the app lifecycle to the component if the start and stop function of the component is available. The new{componentA}() function should looks like:
+  - Create a new{componentA}() function in the same file to initialize the component A. Remember to connect the OnStart() and OnStop() hook of the app lifecycle to the component if the start and stop function of the component is available.
+  - **Do not** call new{componentA}() more than once.
+  - The new{componentA}() function must return **the concrete types** instead of interfaces.
+  - The new{componentA}() function must receive **concrete type dependencies** instead of interfaces.
+  - The new{componentA}() function should looks like:
   ```
   func newComponentA(
     appLifecycle fx.Lifecycle,
     config a_package.ComponentAConfig,
+    concreteDepX *x_package.DependencyX,
+    concreteDepY *y_package.DependencyY,
   ) *a_package.ComponentA {
-    c := a_package.NewComponentA(config)
+    c := a_package.NewComponentA(config, concreteDepX, concreteDepY)
     appLifecycle.Append(fx.Hook{
       OnStart: c.Start,
       OnStop:  c.Stop,
@@ -64,17 +70,12 @@ alwaysApply: false
     return c
   }
   ```
-  - Annotate with all interfaces it implements. For example, if a component A satisfy interfaceB and interfaceC, then the code should looks like:
+  - Provide the new{componentA}() to the fx:
   ```
   fx.Provide(
-    fx.Annotate(
-      newComponentA,
-      fx.As(new(interfaceB)),
-      fx.As(new(interfaceC)),
-    ),
-    fx.Annotate(
-      // another annotation
-    ),
+    newComponentX,
+    newComponentY,
+    newComponentA,
     ...
   ),
   ```
@@ -192,9 +193,32 @@ alwaysApply: false
     return gwServer
   }
   ```
-6. **Verify dependency injection at runtime**
+6. In cmd/cmd.go, in init function, add a command for the new application in the init() function. For example, we have just created a new consumer, then:
+  ```
+  func init() {
+    // ...
+    startConsumerCmd := &cobra.Command{
+      Use:   "start-cron",
+      Short: "Starts the cronjob",
+      Long:  `Starts the cronjob`,
+      Run:   startCron,
+    }
+
+    RootCmd.AddCommand(startConsumerCmd)
+    // ...
+  }
+  ```
+7. **Verify dependency injection at runtime**
   - Compilation success ≠ DI success — Uber/fx resolves dependencies at **runtime**.
-  - Start the generated application normally (do **not** use `--help`).
+  - Start the generated application **normally** with the following script:
+    ```
+    go run main.go {your-new-command} &
+    PID=$!
+    sleep 5
+    kill $PID 2>/dev/null
+    wait $PID 2>/dev/null
+    echo "Dependency injection test completed"
+    ```
   - Observe logs for errors such as:
     - `"could not build arguments for function"`
     - `"did you mean to use"`

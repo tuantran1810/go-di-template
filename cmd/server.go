@@ -83,9 +83,9 @@ func newMessageRepository(
 }
 
 func newUsersUsecase(
-	repository usecases.IRepository,
-	userRepository usecases.IUserRepository,
-	userAttributeRepository usecases.IUserAttributeRepository,
+	repository *mysql.Repository,
+	userRepository *repositories.UserRepository,
+	userAttributeRepository *repositories.UserAttributeRepository,
 ) *usecases.Users {
 	return usecases.NewUsersUsecase(repository, userRepository, userAttributeRepository)
 }
@@ -93,8 +93,8 @@ func newUsersUsecase(
 func newLoggingWorker(
 	cfg usecases.LoggingWorkerConfig,
 	appLifecycle fx.Lifecycle,
-	messageRepository usecases.IMessageRepository,
-	client usecases.IClient,
+	messageRepository *repositories.MessageRepository,
+	client *clients.FakeClient,
 ) *usecases.LoggingWorker {
 	w := usecases.NewLoggingWorker(cfg, messageRepository, client)
 	appLifecycle.Append(fx.Hook{
@@ -105,8 +105,8 @@ func newLoggingWorker(
 }
 
 func newController(
-	usecase controllers.IUserUsecase,
-	loggingWorker controllers.ILoggingWorker,
+	usecase *usecases.Users,
+	loggingWorker *usecases.LoggingWorker,
 ) *controllers.UserController {
 	return controllers.NewUserController(usecase, loggingWorker)
 }
@@ -126,7 +126,7 @@ func newFakeClient(
 func newFakeConsumer(
 	appLifecycle fx.Lifecycle,
 	config config.ConsumerConfig,
-	loggingWorker consumers.ILoggingWorker,
+	loggingWorker *usecases.LoggingWorker,
 ) *consumers.FakeConsumer {
 	c := consumers.NewFakeConsumer(
 		consumers.FakeConsumerConfig{
@@ -276,34 +276,12 @@ func newServerApp() *fx.App {
 		),
 		fx.Provide(
 			newRepository,
-			func(r *mysql.Repository) usecases.IRepository {
-				return r
-			},
-			fx.Annotate(
-				newMessageRepository,
-				fx.As(new(usecases.IMessageRepository)),
-			),
-			fx.Annotate(
-				newUserRepository,
-				fx.As(new(usecases.IUserRepository)),
-			),
-			fx.Annotate(
-				newUserAttributeRepository,
-				fx.As(new(usecases.IUserAttributeRepository)),
-			),
-			fx.Annotate(
-				newUsersUsecase,
-				fx.As(new(controllers.IUserUsecase)),
-			),
-			fx.Annotate(
-				newFakeClient,
-				fx.As(new(usecases.IClient)),
-			),
-			fx.Annotate(
-				newLoggingWorker,
-				fx.As(new(controllers.ILoggingWorker)),
-				fx.As(new(consumers.ILoggingWorker)),
-			),
+			newMessageRepository,
+			newUserRepository,
+			newUserAttributeRepository,
+			newUsersUsecase,
+			newFakeClient,
+			newLoggingWorker,
 			newController,
 		),
 		fx.Invoke(startGrpcServer),
