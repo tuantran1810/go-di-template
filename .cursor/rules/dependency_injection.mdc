@@ -18,7 +18,7 @@ alwaysApply: false
      ```go
      var _ interfaceA = &structA{}
      ```
-  2. Create the main startup function. For example, if I want to start a server program, it should looks like:
+2. Create the main startup function. For example, if I want to start a server program, it should looks like:
   ```
   func newServerApp() *fx.App {
     cfg := config.MustLoadConfig[config.ServerConfig]()
@@ -42,153 +42,154 @@ alwaysApply: false
     newServerApp().Run()
   }
   ```
-  3. Supply configurations
-    - Most the values for these configurations should come from the loaded config (the cfg variable)
-    - Inspect the input diagram, for all components denoted as classes, looking for their constructors. This function may require input configuration struct in its argument
-    - Try to compose all configuration structs for all components by finding the corresponding configuration in the loaded config.
-  4. Provide components
-    - For each component (class in diagram, not invoked directly)
-      - If a constructor exists: call it.
-      - Else: init struct directly.
-    - Create a new{componentA}() function in the same file to initialize the component A. Remember to connect the OnStart() and OnStop() hook of the app lifecycle to the component if the start and stop function of the component is available. The new{componentA}() function should looks like:
-    ```
-    func newComponentA(
-      appLifecycle fx.Lifecycle,
-      config a_package.ComponentAConfig,
-    ) *a_package.ComponentA {
-      c := a_package.NewComponentA(config)
-      appLifecycle.Append(fx.Hook{
-        OnStart: c.Start,
-        OnStop:  c.Stop,
-      })
-      return c
-    }
-    ```
-    - Annotate with all interfaces it implements. For example, if a component A satisfy interfaceB and interfaceC, then the code should looks like:
-    ```
-    fx.Provide(
-			fx.Annotate(
-				newComponentA,
-				fx.As(new(interfaceB)),
-				fx.As(new(interfaceC)),
-			),
-			fx.Annotate(
-				// another annotation
-			),
-      ...
+3. Supply configurations
+  - Most the values for these configurations should come from the loaded config (the cfg variable)
+  - Inspect the input diagram, for all components denoted as classes, looking for their constructors. This function may require input configuration struct in its argument
+  - Try to compose all configuration structs for all components by finding the corresponding configuration in the loaded config.
+4. Provide components
+  - For each component (class in diagram, not invoked directly)
+    - If a constructor exists: call it.
+    - Else: init struct directly.
+  - Create a new{componentA}() function in the same file to initialize the component A. Remember to connect the OnStart() and OnStop() hook of the app lifecycle to the component if the start and stop function of the component is available. The new{componentA}() function should looks like:
+  ```
+  func newComponentA(
+    appLifecycle fx.Lifecycle,
+    config a_package.ComponentAConfig,
+  ) *a_package.ComponentA {
+    c := a_package.NewComponentA(config)
+    appLifecycle.Append(fx.Hook{
+      OnStart: c.Start,
+      OnStop:  c.Stop,
+    })
+    return c
+  }
+  ```
+  - Annotate with all interfaces it implements. For example, if a component A satisfy interfaceB and interfaceC, then the code should looks like:
+  ```
+  fx.Provide(
+    fx.Annotate(
+      newComponentA,
+      fx.As(new(interfaceB)),
+      fx.As(new(interfaceC)),
     ),
-    ```
-  5. Invoke top-level components
-    - Use fx.Invoke() for high-level services (e.g., servers, workers).
-    - We also need to create a new{componentA}() function with OnStart() and OnStop() hook, exactly the same as the example in step 4.
-    - Use fx.Invoke() to invoke the component:
-    ```
-    fx.Invoke(newComponentA)
-    ```
-    - For invoking a grpc server, use the following template for the newGrpcServer() function:
-    ```
-    func newGrpcServer(
-      appLifecycle fx.Lifecycle,
-      cfg config.ServerConfig,
-      controller *controllers.BusinessController, // change it to an appropriate controller
-    ) *grpc.Server {
-      grpcHost := fmt.Sprintf("0.0.0.0:%d", cfg.GrpcPort)
+    fx.Annotate(
+      // another annotation
+    ),
+    ...
+  ),
+  ```
+5. Invoke top-level components
+  - Use fx.Invoke() for high-level services (e.g., servers, workers).
+  - We also need to create a new{componentA}() function with OnStart() and OnStop() hook, exactly the same as the example in step 4.
+  - Use fx.Invoke() to invoke the component:
+  ```
+  fx.Invoke(newComponentA)
+  ```
+  - For invoking a grpc server, use the following template for the newGrpcServer() function:
+  ```
+  func newGrpcServer(
+    appLifecycle fx.Lifecycle,
+    cfg config.ServerConfig,
+    controller *controllers.BusinessController, // change it to an appropriate controller
+  ) *grpc.Server {
+    grpcHost := fmt.Sprintf("0.0.0.0:%d", cfg.GrpcPort)
 
-      listen, err := net.Listen("tcp", grpcHost)
-      if err != nil {
-        log.Fatalln("Failed to listen:", err)
-      }
-
-      server := grpc.NewServer(
-        grpc.ChainUnaryInterceptor(
-          middlewares.HandleErrorCodes,
-        ),
-      )
-      pb.Register{...}ServiceServer(server, controller)
-      grpc_health_v1.RegisterHealthServer(server, health.NewServer())
-      reflection.Register(server)
-
-      appLifecycle.Append(fx.Hook{
-        OnStart: func(_ context.Context) error {
-          log.Infof("Starting grpc server on %s", grpcHost)
-          go func() {
-            if err := server.Serve(listen); err != nil {
-              log.Fatalln("Failed to serve grpc:", err)
-            }
-          }()
-
-          return nil
-        },
-        OnStop: func(_ context.Context) error {
-          log.Infof("Stopping grpc server on %s", grpcHost)
-          server.GracefulStop()
-
-          return nil
-        },
-      })
-
-      return server
+    listen, err := net.Listen("tcp", grpcHost)
+    if err != nil {
+      log.Fatalln("Failed to listen:", err)
     }
-    ```
-    - For invoking an http server, use the following template for the newHttpServer() function:
-    ```
-    func newHttpServer(
-      appLifecycle fx.Lifecycle,
-      cfg config.ServerConfig,
-      controller *controllers.BusinessController, // change it to an appropriate controller
-    ) *http.Server {
-      httpHost := fmt.Sprintf("0.0.0.0:%d", cfg.HttpPort)
 
-      gwmux := runtime.NewServeMux(
-        runtime.WithErrorHandler(
-          func(
-            ctx context.Context,
-            mux *runtime.ServeMux,
-            marshaler runtime.Marshaler,
-            w http.ResponseWriter,
-            r *http.Request,
-            err error,
-          ) {
-            runtime.DefaultHTTPErrorHandler(
-              ctx, mux, marshaler, w, r,
-              middlewares.HandleError(err),
-            )
-          },
-        ),
-      )
-      if err := pb.Register{...}ServiceHandlerServer(
-        globalContext, gwmux, controller,
-      ); err != nil {
-        log.Fatalln("Failed to register gateway:", err)
-      }
+    server := grpc.NewServer(
+      grpc.ChainUnaryInterceptor(
+        middlewares.HandleErrorCodes,
+      ),
+    )
+    pb.Register{...}ServiceServer(server, controller)
+    grpc_health_v1.RegisterHealthServer(server, health.NewServer())
+    reflection.Register(server)
 
-      gwServer := &http.Server{
-        Addr:        httpHost,
-        ReadTimeout: cfg.HttpServerReadTimeout,
-        Handler:     gwmux,
-      }
-
-      appLifecycle.Append(fx.Hook{
-        OnStart: func(_ context.Context) error {
-          log.Infof("Starting http server on %s", httpHost)
-          go func() {
-            if err := gwServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-              log.Fatalln("Failed to serve http:", err)
-            }
-          }()
-
-          return nil
-        },
-        OnStop: func(ctx context.Context) error {
-          log.Infof("Stopping http server on %s", httpHost)
-          if err := gwServer.Shutdown(ctx); err != nil {
-            log.Fatalln("Failed to shutdown http server:", err)
+    appLifecycle.Append(fx.Hook{
+      OnStart: func(_ context.Context) error {
+        log.Infof("Starting grpc server on %s", grpcHost)
+        go func() {
+          if err := server.Serve(listen); err != nil {
+            log.Fatalln("Failed to serve grpc:", err)
           }
+        }()
 
-          return nil
+        return nil
+      },
+      OnStop: func(_ context.Context) error {
+        log.Infof("Stopping grpc server on %s", grpcHost)
+        server.GracefulStop()
+
+        return nil
+      },
+    })
+
+    return server
+  }
+  ```
+  - For invoking an http server, use the following template for the newHttpServer() function:
+  ```
+  func newHttpServer(
+    appLifecycle fx.Lifecycle,
+    cfg config.ServerConfig,
+    controller *controllers.BusinessController, // change it to an appropriate controller
+  ) *http.Server {
+    httpHost := fmt.Sprintf("0.0.0.0:%d", cfg.HttpPort)
+
+    gwmux := runtime.NewServeMux(
+      runtime.WithErrorHandler(
+        func(
+          ctx context.Context,
+          mux *runtime.ServeMux,
+          marshaler runtime.Marshaler,
+          w http.ResponseWriter,
+          r *http.Request,
+          err error,
+        ) {
+          runtime.DefaultHTTPErrorHandler(
+            ctx, mux, marshaler, w, r,
+            middlewares.HandleError(err),
+          )
         },
-      })
-
-      return gwServer
+      ),
+    )
+    if err := pb.Register{...}ServiceHandlerServer(
+      globalContext, gwmux, controller,
+    ); err != nil {
+      log.Fatalln("Failed to register gateway:", err)
     }
-    ```
+
+    gwServer := &http.Server{
+      Addr:        httpHost,
+      ReadTimeout: cfg.HttpServerReadTimeout,
+      Handler:     gwmux,
+    }
+
+    appLifecycle.Append(fx.Hook{
+      OnStart: func(_ context.Context) error {
+        log.Infof("Starting http server on %s", httpHost)
+        go func() {
+          if err := gwServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+            log.Fatalln("Failed to serve http:", err)
+          }
+        }()
+
+        return nil
+      },
+      OnStop: func(ctx context.Context) error {
+        log.Infof("Stopping http server on %s", httpHost)
+        if err := gwServer.Shutdown(ctx); err != nil {
+          log.Fatalln("Failed to shutdown http server:", err)
+        }
+
+        return nil
+      },
+    })
+
+    return gwServer
+  }
+  ```
+6. Try to start the service to see if the dependency injection works. Try to fix the code based on the service log. Ignore if the error is not cause by the dependency injection workflow.
