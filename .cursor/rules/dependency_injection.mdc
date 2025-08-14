@@ -198,10 +198,10 @@ alwaysApply: false
   func init() {
     // ...
     startConsumerCmd := &cobra.Command{
-      Use:   "start-cron",
-      Short: "Starts the cronjob",
-      Long:  `Starts the cronjob`,
-      Run:   startCron,
+      Use:   "start-consumer",
+      Short: "Starts the consumer",
+      Long:  `Starts the consumer`,
+      Run:   startConsumer,
     }
 
     RootCmd.AddCommand(startConsumerCmd)
