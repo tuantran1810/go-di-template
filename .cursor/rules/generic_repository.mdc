@@ -1,4 +1,5 @@
 ---
+description: this is the rules for implementing a SQL repository, taking advantage of the Generic Repository implementation.
 globs: internal/repositories/*.go,internal/repositories/**/*.go
 alwaysApply: false
 ---

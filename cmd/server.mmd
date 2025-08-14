@@ -1,0 +1,79 @@
+classDiagram
+
+    class mysql.Repository {
+        + MustNewRepository(mysql.RepositoryConfig) *mysql.Repository
+        + Start(context.Context) error
+        + Stop(context.Context) error
+    }
+
+    class repositories.GenericRepository {
+        + NewGenericRepository(*mysql.Repository, *entities.ExtendedDataTransformer[T, E]) *repositories.GenericRepository[T, E]
+    }
+
+    class repositories.MessageRepository {
+        + NewMessageRepository(*mysql.Repository) *repositories.MessageRepository
+    }
+
+    class repositories.UserRepository {
+        + NewUserRepository(*mysql.Repository) *repositories.UserRepository
+    }
+
+    class repositories.UserAttributeRepository {
+        + NewUserAttributeRepository(*mysql.Repository) *repositories.UserAttributeRepository
+    }
+
+    class clients.FakeClient {
+        + NewFakeClient(clients.FakeClientConfig) *clients.FakeClient
+        + Start(context.Context) error
+        + Stop(context.Context) error
+    }
+
+    class usecases.Users {
+        + NewUsersUsecase(usecases.IRepository, usecases.IUserRepository, usecases.IUserAttributeRepository) *usecases.Users
+    }
+
+    class usecases.LoggingWorker {
+        + NewLoggingWorker(usecases.LoggingWorkerConfig, usecases.IMessageRepository, usecases.IClient) *usecases.LoggingWorker
+        + Start(context.Context) error
+        + Stop(context.Context) error
+    }
+
+    class controllers.UserController {
+        + NewUserController(usecases.IUserUsecase, usecases.ILoggingWorker) *controllers.UserController
+    }
+
+    class consumers.FakeConsumer {
+        + NewFakeConsumer(consumers.FakeConsumerConfig, consumers.ILoggingWorker) *consumers.FakeConsumer
+        + Start(context.Context) error
+        + Stop(context.Context) error
+    }
+
+    repositories.GenericRepository ..> mysql.Repository
+    repositories.MessageRepository --|> repositories.GenericRepository
+    repositories.UserRepository --|> repositories.GenericRepository
+    repositories.UserAttributeRepository --|> repositories.GenericRepository
+
+    usecases.IMessageRepository <|.. repositories.MessageRepository
+    usecases.IUserRepository <|.. repositories.UserRepository
+    usecases.IUserAttributeRepository <|.. repositories.UserAttributeRepository
+    usecases.IRepository <|.. mysql.Repository
+    usecases.IClient <|.. clients.FakeClient
+    usecases.Users ..> usecases.IRepository
+    usecases.Users ..> usecases.IUserRepository
+    usecases.Users ..> usecases.IUserAttributeRepository
+    usecases.LoggingWorker ..> usecases.IMessageRepository
+    usecases.LoggingWorker ..> usecases.IClient
+
+    controllers.IUserUsecase <|.. usecases.Users
+    controllers.ILoggingWorker <|.. usecases.LoggingWorker
+    controllers.UserController ..> controllers.IUserUsecase
+    controllers.UserController ..> controllers.ILoggingWorker
+
+    consumers.ILoggingWorker <|.. usecases.LoggingWorker
+    consumers.FakeConsumer ..> consumers.ILoggingWorker
+
+    fx.App ..> grpc.Server
+    grpc.Server ..> controllers.UserController
+    fx.App ..> http.Server
+    http.Server ..> controllers.UserController
+    fx.App ..> consumers.FakeConsumer
