@@ -104,7 +104,7 @@ alwaysApply: false
           middlewares.HandleErrorCodes,
         ),
       )
-      pb.RegisterXXXServiceServer(server, controller)
+      pb.Register{...}ServiceServer(server, controller)
       grpc_health_v1.RegisterHealthServer(server, health.NewServer())
       reflection.Register(server)
 
@@ -156,7 +156,7 @@ alwaysApply: false
           },
         ),
       )
-      if err := pb.RegisterXXXServiceHandlerServer(
+      if err := pb.Register{...}ServiceHandlerServer(
         globalContext, gwmux, controller,
       ); err != nil {
         log.Fatalln("Failed to register gateway:", err)
