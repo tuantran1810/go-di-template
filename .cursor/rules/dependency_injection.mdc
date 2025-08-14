@@ -210,7 +210,7 @@ alwaysApply: false
   ```
 7. **Verify dependency injection at runtime**
   - Compilation success ≠ DI success — Uber/fx resolves dependencies at **runtime**.
-  - Start the generated application **normally** with the following script:
+  - Start the generated application **normally** with the following script, **do not use anything else**
     ```
     go run main.go {your-new-command} &
     PID=$!
