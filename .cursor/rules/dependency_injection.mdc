@@ -4,7 +4,6 @@ globs: cmd/*.go
 alwaysApply: false
 ---
 # Overview
-# Overview
 - Use [Uber/fx](https://github.com/uber-go/fx) for DI, startup, and graceful shutdown.
 - fx builds a dependency graph:
   - On startup: supplies configs, constructs components in dependency order, runs `OnStart()` hooks.
@@ -18,7 +17,8 @@ alwaysApply: false
      ```go
      var _ interfaceA = &structA{}
      ```
-2. Create the main startup function. For example, if I want to start a server program, it should looks like:
+2. **Create the main startup function**
+  For example, if I want to start a server program, it should looks like:
   ```
   func newServerApp() *fx.App {
     cfg := config.MustLoadConfig[config.ServerConfig]()
@@ -42,11 +42,11 @@ alwaysApply: false
     newServerApp().Run()
   }
   ```
-3. Supply configurations
+3. **Supply configurations**
   - Most the values for these configurations should come from the loaded config (the cfg variable)
   - Inspect the input diagram, for all components denoted as classes, looking for their constructors. This function may require input configuration struct in its argument
   - Try to compose all configuration structs for all components by finding the corresponding configuration in the loaded config.
-4. Provide components
+4. **Provide components**
   - For each component (class in diagram, not invoked directly)
     - If a constructor exists: call it.
     - Else: init struct directly.
@@ -78,7 +78,7 @@ alwaysApply: false
     ...
   ),
   ```
-5. Invoke top-level components
+5. **Invoke top-level components**
   - Use fx.Invoke() for high-level services (e.g., servers, workers).
   - We also need to create a new{componentA}() function with OnStart() and OnStop() hook, exactly the same as the example in step 4.
   - Use fx.Invoke() to invoke the component:
@@ -192,4 +192,13 @@ alwaysApply: false
     return gwServer
   }
   ```
-6. Try to start the service to see if the dependency injection works. Try to fix the code based on the service log. Ignore if the error is not cause by the dependency injection workflow.
+6. **Verify dependency injection at runtime**
+  - Compilation success ≠ DI success — Uber/fx resolves dependencies at **runtime**.
+  - Start the generated application normally (do **not** use `--help`).
+  - Observe logs for errors such as:
+    - `"could not build arguments for function"`
+    - `"did you mean to use"`
+  - If errors occur:
+    1. Read the service logs carefully.
+    2. Follow the instructions or hints in the log to fix missing/wrong DI bindings.
+  - Ignore errors unrelated to the DI workflow.
