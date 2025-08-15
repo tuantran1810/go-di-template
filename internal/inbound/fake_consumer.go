@@ -1,4 +1,4 @@
-package consumers
+package inbound
 
 import (
 	"context"

@@ -22,8 +22,8 @@ classDiagram
         + NewUserAttributeRepository(*mysql.Repository) *repositories.UserAttributeRepository
     }
 
-    class clients.FakeClient {
-        + NewFakeClient(clients.FakeClientConfig) *clients.FakeClient
+    class outbound.FakeClient {
+        + NewFakeClient(outbound.FakeClientConfig) *outbound.FakeClient
         + Start(context.Context) error
         + Stop(context.Context) error
     }
@@ -42,8 +42,8 @@ classDiagram
         + NewUserController(usecases.IUserUsecase, usecases.ILoggingWorker) *controllers.UserController
     }
 
-    class consumers.FakeConsumer {
-        + NewFakeConsumer(consumers.FakeConsumerConfig, consumers.ILoggingWorker) *consumers.FakeConsumer
+    class inbound.FakeConsumer {
+        + NewFakeConsumer(inbound.FakeConsumerConfig, inbound.ILoggingWorker) *inbound.FakeConsumer
         + Start(context.Context) error
         + Stop(context.Context) error
     }
@@ -57,7 +57,7 @@ classDiagram
     usecases.IUserRepository <|.. repositories.UserRepository
     usecases.IUserAttributeRepository <|.. repositories.UserAttributeRepository
     usecases.IRepository <|.. mysql.Repository
-    usecases.IClient <|.. clients.FakeClient
+    usecases.IClient <|.. outbound.FakeClient
     usecases.Users ..> usecases.IRepository
     usecases.Users ..> usecases.IUserRepository
     usecases.Users ..> usecases.IUserAttributeRepository
@@ -69,11 +69,11 @@ classDiagram
     controllers.UserController ..> controllers.IUserUsecase
     controllers.UserController ..> controllers.ILoggingWorker
 
-    consumers.ILoggingWorker <|.. usecases.LoggingWorker
-    consumers.FakeConsumer ..> consumers.ILoggingWorker
+    inbound.ILoggingWorker <|.. usecases.LoggingWorker
+    inbound.FakeConsumer ..> inbound.ILoggingWorker
 
     fx.App ..> grpc.Server
     grpc.Server ..> controllers.UserController
     fx.App ..> http.Server
     http.Server ..> controllers.UserController
-    fx.App ..> consumers.FakeConsumer
+    fx.App ..> inbound.FakeConsumer

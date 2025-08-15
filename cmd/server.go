@@ -10,9 +10,9 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/tuantran1810/go-di-template/config"
-	"github.com/tuantran1810/go-di-template/internal/clients"
-	"github.com/tuantran1810/go-di-template/internal/consumers"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
+	"github.com/tuantran1810/go-di-template/internal/inbound"
+	"github.com/tuantran1810/go-di-template/internal/outbound"
 	"github.com/tuantran1810/go-di-template/internal/repositories"
 	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"github.com/tuantran1810/go-di-template/internal/usecases"
@@ -94,7 +94,7 @@ func newLoggingWorker(
 	cfg usecases.LoggingWorkerConfig,
 	appLifecycle fx.Lifecycle,
 	messageRepository *repositories.MessageRepository,
-	client *clients.FakeClient,
+	client *outbound.FakeClient,
 ) *usecases.LoggingWorker {
 	w := usecases.NewLoggingWorker(cfg, messageRepository, client)
 	appLifecycle.Append(fx.Hook{
@@ -113,9 +113,9 @@ func newController(
 
 func newFakeClient(
 	appLifecycle fx.Lifecycle,
-	config clients.FakeClientConfig,
-) *clients.FakeClient {
-	c := clients.NewFakeClient(config)
+	config outbound.FakeClientConfig,
+) *outbound.FakeClient {
+	c := outbound.NewFakeClient(config)
 	appLifecycle.Append(fx.Hook{
 		OnStart: c.Start,
 		OnStop:  c.Stop,
@@ -127,9 +127,9 @@ func newFakeConsumer(
 	appLifecycle fx.Lifecycle,
 	config config.ConsumerConfig,
 	loggingWorker *usecases.LoggingWorker,
-) *consumers.FakeConsumer {
-	c := consumers.NewFakeConsumer(
-		consumers.FakeConsumerConfig{
+) *inbound.FakeConsumer {
+	c := inbound.NewFakeConsumer(
+		inbound.FakeConsumerConfig{
 			PerMs: config.PerMs,
 		},
 		loggingWorker,
@@ -270,7 +270,7 @@ func newServerApp() *fx.App {
 			config.ConsumerConfig{
 				PerMs: cfg.Consumer.PerMs,
 			},
-			clients.FakeClientConfig{
+			outbound.FakeClientConfig{
 				LatencyMs: cfg.Client.LatencyMs,
 			},
 		),
