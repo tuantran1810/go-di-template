@@ -21,7 +21,7 @@ This project follows a strict Clean Architecture structure with four layers:
 ### Infrastructure Layer
   - Location: split into multiple subfolders:
     - **internal/clients/** – Callable clients actively used by the service (active outbound connectors), such as HTTP clients, gRPC clients, Pub/Sub or message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
-    - **internal/consumers/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+    - **internal/inbound/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
     - **internal/controllers/** – Server implementations for gRPC or HTTP APIs.
     - **internal/repositories/** – Storage drivers and database query logic for interacting with databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
 
@@ -97,8 +97,8 @@ This project follows a strict Clean Architecture structure with four layers:
 This combined layer contains all code that interacts with external systems and adapts data between the Use Case layer and those systems. It implements interfaces defined in the Use Case layer, performs necessary data transformations, and contains all technical details such as frameworks, servers, and clients.
 
 ### Contents:
-  - Clients – Active outbound connectors such as HTTP clients, gRPC clients, Pub/Sub producers, and message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
-  - Consumers – Inbound connectors triggered by incoming messages or events from external systems.
+  - Outbound - connectors such as HTTP clients, gRPC clients, Pub/Sub producers, and message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+  - Inbound - connectors triggered by incoming messages or events from external systems.
   - Controllers – Server-side implementations of gRPC or HTTP APIs.
   - Repositories – Storage drivers and query logic for databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
   - Data Mapping Logic – Converting between Entity objects and external data formats.
