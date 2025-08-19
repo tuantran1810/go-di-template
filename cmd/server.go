@@ -13,7 +13,7 @@ import (
 	"github.com/tuantran1810/go-di-template/internal/repositories"
 	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
 	"github.com/tuantran1810/go-di-template/internal/usecases"
-	"github.com/tuantran1810/go-di-template/libs/middlewares"
+	"github.com/tuantran1810/go-di-template/libs/middlewares/errorcode"
 	pb "github.com/tuantran1810/go-di-template/pkg/go_di_template/v1"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
@@ -154,9 +154,8 @@ func startInboundServer(
 			if err := pb.RegisterUserServiceHandlerServer(globalContext, mux, userController); err != nil {
 				log.Fatalln("Failed to register server:", err)
 			}
-		}).AddInterceptor(
-		middlewares.HandleErrorCodes,
-	)
+		}).
+		AddInterceptor(errorcode.HandleErrorCodes)
 
 	server, err := server.NewServer(serverConfig)
 	if err != nil {

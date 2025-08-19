@@ -9,12 +9,11 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/tuantran1810/go-di-template/libs/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-
-	"github.com/tuantran1810/go-di-template/internal/inbound/server/correlation"
 )
 
 type LogFunc func(template string, args ...interface{})
@@ -103,15 +102,15 @@ func getLogFunc(log Logger, code codes.Code) LogFunc {
 func detectAndInjectCorrelationID(ctx context.Context) (context.Context, string) {
 	correlationID := ""
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		correlationIDs, ok := md[correlation.XCorrelationID]
+		correlationIDs, ok := md[utils.XCorrelationID]
 		if ok && len(correlationIDs) > 0 {
 			correlationID = correlationIDs[0]
 		} else { // if cannot detect from header
-			correlationID = correlation.GetCorrelationID(ctx)
+			correlationID = utils.GetCorrelationID(ctx)
 		}
 	}
 
-	return correlation.InjectCorrelationIDToContext(ctx, correlationID), correlationID
+	return utils.InjectCorrelationIDToContext(ctx, correlationID), correlationID
 }
 
 func UnaryServerInterceptor(log Logger, args ...Options) grpc.UnaryServerInterceptor {

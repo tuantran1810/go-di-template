@@ -1,4 +1,4 @@
-package middlewares
+package errorcode
 
 import (
 	"fmt"

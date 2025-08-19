@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	grpc_logger "github.com/tuantran1810/go-di-template/internal/inbound/server/logger"
+	grpc_logger "github.com/tuantran1810/go-di-template/libs/middlewares/logger"
 	"google.golang.org/grpc"
 )
 
