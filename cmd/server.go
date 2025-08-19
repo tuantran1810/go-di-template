@@ -1,17 +1,14 @@
 package cmd
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"net"
-	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
 	"github.com/tuantran1810/go-di-template/config"
 	"github.com/tuantran1810/go-di-template/internal/controllers"
 	"github.com/tuantran1810/go-di-template/internal/inbound"
+	"github.com/tuantran1810/go-di-template/internal/inbound/server"
 	"github.com/tuantran1810/go-di-template/internal/outbound"
 	"github.com/tuantran1810/go-di-template/internal/repositories"
 	"github.com/tuantran1810/go-di-template/internal/repositories/mysql"
@@ -20,9 +17,6 @@ import (
 	pb "github.com/tuantran1810/go-di-template/pkg/go_di_template/v1"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -143,107 +137,38 @@ func newFakeConsumer(
 	return c
 }
 
-func startGrpcServer(
+func startInboundServer(
 	appLifecycle fx.Lifecycle,
 	cfg config.ServerConfig,
 	userController *controllers.UserController,
-) *grpc.Server {
-	grpcHost := fmt.Sprintf("0.0.0.0:%d", cfg.GrpcPort)
+) *server.Server {
+	serverConfig := server.NewServerConfig().
+		SetLogger(log).
+		SetGRPCAddr(fmt.Sprintf("0.0.0.0:%d", cfg.GrpcPort)).
+		SetHTTPAddr(fmt.Sprintf("0.0.0.0:%d", cfg.HttpPort)).
+		SetGRPCReflection(true).
+		RegisterGRPC(func(s *grpc.Server) {
+			pb.RegisterUserServiceServer(s, userController)
+		}).
+		RegisterHTTP(func(mux *runtime.ServeMux, conn *grpc.ClientConn) {
+			if err := pb.RegisterUserServiceHandlerServer(globalContext, mux, userController); err != nil {
+				log.Fatalln("Failed to register server:", err)
+			}
+		}).AddInterceptor(
+		middlewares.HandleErrorCodes,
+	)
 
-	listen, err := net.Listen("tcp", grpcHost)
+	server, err := server.NewServer(serverConfig)
 	if err != nil {
-		log.Fatalln("Failed to listen:", err)
+		log.Fatalln("Failed to create server:", err)
 	}
 
-	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middlewares.HandleErrorCodes,
-		),
-	)
-	pb.RegisterUserServiceServer(server, userController)
-	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
-	reflection.Register(server)
-
 	appLifecycle.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			log.Infof("Starting grpc server on %s", grpcHost)
-			go func() {
-				if err := server.Serve(listen); err != nil {
-					log.Fatalln("Failed to serve grpc:", err)
-				}
-			}()
-
-			return nil
-		},
-		OnStop: func(_ context.Context) error {
-			log.Infof("Stopping grpc server on %s", grpcHost)
-			server.GracefulStop()
-
-			return nil
-		},
+		OnStart: server.StartBackground,
+		OnStop:  server.Stop,
 	})
 
 	return server
-}
-
-func startHttpServer(
-	appLifecycle fx.Lifecycle,
-	cfg config.ServerConfig,
-	userController *controllers.UserController,
-) *http.Server {
-	httpHost := fmt.Sprintf("0.0.0.0:%d", cfg.HttpPort)
-
-	gwmux := runtime.NewServeMux(
-		runtime.WithErrorHandler(
-			func(
-				ctx context.Context,
-				mux *runtime.ServeMux,
-				marshaler runtime.Marshaler,
-				w http.ResponseWriter,
-				r *http.Request,
-				err error,
-			) {
-				runtime.DefaultHTTPErrorHandler(
-					ctx, mux, marshaler, w, r,
-					middlewares.HandleError(err),
-				)
-			},
-		),
-	)
-	if err := pb.RegisterUserServiceHandlerServer(
-		globalContext, gwmux, userController,
-	); err != nil {
-		log.Fatalln("Failed to register gateway:", err)
-	}
-
-	gwServer := &http.Server{
-		Addr:        httpHost,
-		ReadTimeout: cfg.HttpServerReadTimeout,
-		Handler:     gwmux,
-	}
-
-	appLifecycle.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			log.Infof("Starting http server on %s", httpHost)
-			go func() {
-				if err := gwServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					log.Fatalln("Failed to serve http:", err)
-				}
-			}()
-
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			log.Infof("Stopping http server on %s", httpHost)
-			if err := gwServer.Shutdown(ctx); err != nil {
-				log.Fatalln("Failed to shutdown http server:", err)
-			}
-
-			return nil
-		},
-	})
-
-	return gwServer
 }
 
 func newServerApp() *fx.App {
@@ -284,8 +209,7 @@ func newServerApp() *fx.App {
 			newLoggingWorker,
 			newController,
 		),
-		fx.Invoke(startGrpcServer),
-		fx.Invoke(startHttpServer),
+		fx.Invoke(startInboundServer),
 		fx.Invoke(newFakeConsumer),
 	)
 }
