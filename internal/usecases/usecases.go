@@ -15,6 +15,7 @@ const defaultTimeout = 10 * time.Second
 type IUserRepository interface {
 	Create(ctx context.Context, tx entities.Transaction, user *entities.User) (*entities.User, error)
 	FindByUsername(ctx context.Context, tx entities.Transaction, username string) (*entities.User, error)
+	RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error
 }
 
 type IUserAttributeRepository interface {
@@ -29,10 +30,6 @@ type IMessageRepository interface {
 
 type IClient interface {
 	Send(ctx context.Context, msg *entities.Message) error
-}
-
-type IRepository interface {
-	RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error
 }
 
 type IUUIDGenerator interface {

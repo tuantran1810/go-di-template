@@ -20,7 +20,6 @@ import (
 )
 
 var (
-	_ usecases.IRepository              = &mysql.Repository{}
 	_ usecases.IUserRepository          = &repositories.UserRepository{}
 	_ usecases.IUserAttributeRepository = &repositories.UserAttributeRepository{}
 	_ usecases.IMessageRepository       = &repositories.MessageRepository{}
@@ -77,11 +76,10 @@ func newMessageRepository(
 }
 
 func newUsersUsecase(
-	repository *mysql.Repository,
 	userRepository *repositories.UserRepository,
 	userAttributeRepository *repositories.UserAttributeRepository,
 ) *usecases.Users {
-	return usecases.NewUsersUsecase(repository, userRepository, userAttributeRepository)
+	return usecases.NewUsersUsecase(userRepository, userAttributeRepository)
 }
 
 func newLoggingWorker(

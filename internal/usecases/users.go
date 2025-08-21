@@ -9,19 +9,16 @@ import (
 )
 
 type Users struct {
-	repository              IRepository
 	userRepository          IUserRepository
 	userAttributeRepository IUserAttributeRepository
 	uuidGenerator           IUUIDGenerator
 }
 
 func NewUsersUsecase(
-	repository IRepository,
 	userRepository IUserRepository,
 	userAttributeRepository IUserAttributeRepository,
 ) *Users {
 	return &Users{
-		repository:              repository,
 		userRepository:          userRepository,
 		userAttributeRepository: userAttributeRepository,
 		uuidGenerator:           &utils.UUIDGenerator{},
@@ -69,7 +66,7 @@ func (u *Users) CreateUser(ctx context.Context, user *entities.User, attributes 
 	var outUser *entities.User
 	outAttributes := make([]entities.UserAttribute, 0)
 
-	if err := u.repository.RunTx(
+	if err := u.userRepository.RunTx(
 		timeoutCtx,
 		func(ictx context.Context, dbtx entities.Transaction) error {
 			var ierr error

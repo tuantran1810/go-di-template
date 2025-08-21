@@ -153,3 +153,57 @@ func (_c *MockIUserRepository_FindByUsername_Call) RunAndReturn(run func(ctx con
 	_c.Call.Return(run)
 	return _c
 }
+
+// RunTx provides a mock function for the type MockIUserRepository
+func (_mock *MockIUserRepository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
+	var tmpRet mock.Arguments
+	if len(funcs) > 0 {
+		tmpRet = _mock.Called(ctx, funcs)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for RunTx")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...entities.DBTxHandleFunc) error); ok {
+		r0 = returnFunc(ctx, funcs...)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockIUserRepository_RunTx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunTx'
+type MockIUserRepository_RunTx_Call struct {
+	*mock.Call
+}
+
+// RunTx is a helper method to define mock.On call
+//   - ctx
+//   - funcs
+func (_e *MockIUserRepository_Expecter) RunTx(ctx interface{}, funcs ...interface{}) *MockIUserRepository_RunTx_Call {
+	return &MockIUserRepository_RunTx_Call{Call: _e.mock.On("RunTx",
+		append([]interface{}{ctx}, funcs...)...)}
+}
+
+func (_c *MockIUserRepository_RunTx_Call) Run(run func(ctx context.Context, funcs ...entities.DBTxHandleFunc)) *MockIUserRepository_RunTx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := args[1].([]entities.DBTxHandleFunc)
+		run(args[0].(context.Context), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockIUserRepository_RunTx_Call) Return(err error) *MockIUserRepository_RunTx_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockIUserRepository_RunTx_Call) RunAndReturn(run func(ctx context.Context, funcs ...entities.DBTxHandleFunc) error) *MockIUserRepository_RunTx_Call {
+	_c.Call.Return(run)
+	return _c
+}

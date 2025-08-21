@@ -12,24 +12,10 @@ import (
 	mockUsecases "github.com/tuantran1810/go-di-template/mocks/usecases"
 )
 
-type mockRepository struct{}
-
-func (m *mockRepository) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
-	for _, f := range funcs {
-		if f != nil {
-			if err := f(ctx, nil); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func TestUsers_createUserImpl(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 
-	mockRepository := &mockRepository{}
 	mockUserRepository := mockUsecases.NewMockIUserRepository(t)
 	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
 
@@ -114,7 +100,6 @@ func TestUsers_createUserImpl(t *testing.T) {
 		Return(nil, errors.New("fake error"))
 
 	u := &Users{
-		repository:              mockRepository,
 		userRepository:          mockUserRepository,
 		userAttributeRepository: mockUserAttributeRepository,
 	}
@@ -267,8 +252,19 @@ func TestUsers_CreateUser(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 
-	mockRepository := &mockRepository{}
 	mockUserRepository := mockUsecases.NewMockIUserRepository(t)
+	mockUserRepository.On("RunTx", mock.Anything, mock.Anything).Return(
+		func(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
+			for _, f := range funcs {
+				if f != nil {
+					if err := f(ctx, nil); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
+	)
 	mockUserAttributeRepository := mockUsecases.NewMockIUserAttributeRepository(t)
 	mockUUIDGenerator := mockUsecases.NewMockIUUIDGenerator(t)
 
@@ -358,7 +354,6 @@ func TestUsers_CreateUser(t *testing.T) {
 		Return(nil, errors.New("fake error"))
 
 	u := &Users{
-		repository:              mockRepository,
 		userRepository:          mockUserRepository,
 		userAttributeRepository: mockUserAttributeRepository,
 		uuidGenerator:           mockUUIDGenerator,

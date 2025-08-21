@@ -1,5 +1,13 @@
 ---
 description:
-globs:
+globs: internal/usecases/*.go
 alwaysApply: false
 ---
+
+# Overview
+- Clean Architecture aims to separate infrastructure from business logic, so it's hard to reflect database transactions to the business logic layer.
+- This project provides a mechanism to abstract away the transaction from the business logic.
+- In this approach the use case layer acknowledges about the database transaction, it starts, keeps and propagates the transaction around and then stop the transaction, either by commit or rollback.
+
+# Rules to adopt transactions in use case layer
+- Use the RunTx() function of the original repository
