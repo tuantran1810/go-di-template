@@ -266,7 +266,3 @@ func (s *GenericRepository[T, E]) DeleteMany(
 
 	return dbtx.RowsAffected, nil
 }
-
-func (s *GenericRepository[T, E]) RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error {
-	return s.Repository.RunTx(ctx, funcs...)
-}
