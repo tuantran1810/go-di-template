@@ -6,8 +6,8 @@ import (
 )
 
 type Server struct {
-	grpc *grpcServer
-	http *httpServer
+	grpc *GrpcServer
+	http *HttpServer
 }
 
 func NewServer(conf *config) (*Server, error) {
@@ -15,19 +15,19 @@ func NewServer(conf *config) (*Server, error) {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	grpcServer, err := newGRPCServer(conf)
+	grpcServer, err := NewGRPCServer(conf)
 	if err != nil {
 		return nil, fmt.Errorf("new grpc server / %w", err)
 	}
 
-	httpServer, err := newHTTPServer(conf)
+	httpServer, err := NewHTTPServer(conf)
 	if err != nil {
 		return nil, fmt.Errorf("new http server / %w", err)
 	}
 
 	g := &Server{
-		grpcServer,
-		httpServer,
+		grpc: grpcServer,
+		http: httpServer,
 	}
 
 	return g, nil

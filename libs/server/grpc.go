@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type grpcServer struct {
+type GrpcServer struct {
 	server *grpc.Server
 	lis    net.Listener
 }
@@ -30,7 +30,7 @@ type grpcServerConfig struct {
 	reflection    bool
 }
 
-func newGRPCServer(conf *config) (*grpcServer, error) {
+func NewGRPCServer(conf *config) (*GrpcServer, error) {
 	if conf.grpc.registerFunc == nil {
 		return nil, fmt.Errorf(".RegisterGRPCHandler() is required to be able to handle grpc messages")
 	}
@@ -83,7 +83,7 @@ func newGRPCServer(conf *config) (*grpcServer, error) {
 		return nil, fmt.Errorf("grpc tcp listen / %w", err)
 	}
 
-	s := &grpcServer{
+	s := &GrpcServer{
 		server: server,
 		lis:    lis,
 	}
@@ -91,7 +91,7 @@ func newGRPCServer(conf *config) (*grpcServer, error) {
 	return s, nil
 }
 
-func (s *grpcServer) Serve() error {
+func (s *GrpcServer) Serve() error {
 	if err := s.server.Serve(s.lis); err != nil {
 		return fmt.Errorf("grpc serve / %w", err)
 	}
@@ -99,6 +99,6 @@ func (s *grpcServer) Serve() error {
 	return nil
 }
 
-func (s *grpcServer) Stop(ctx context.Context) {
+func (s *GrpcServer) Stop(ctx context.Context) {
 	s.server.GracefulStop()
 }

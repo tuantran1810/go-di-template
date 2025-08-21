@@ -11,7 +11,7 @@ import (
 	grpc_health "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-type httpServer struct {
+type HttpServer struct {
 	server *http.Server
 	conn   *grpc.ClientConn
 }
@@ -23,7 +23,7 @@ type httpServerConfig struct {
 	middlewares     []func(http.Handler) http.Handler
 }
 
-func newHTTPServer(conf *config) (*httpServer, error) {
+func NewHTTPServer(conf *config) (*HttpServer, error) {
 	if conf.http.addr == "" {
 		conf.http.addr = "localhost:8080"
 	}
@@ -57,7 +57,7 @@ func newHTTPServer(conf *config) (*httpServer, error) {
 		conf.http.registerFunc(mux, conn)
 	}
 
-	s := &httpServer{
+	s := &HttpServer{
 		server: &http.Server{
 			Addr:    conf.http.addr,
 			Handler: handler,
@@ -68,7 +68,7 @@ func newHTTPServer(conf *config) (*httpServer, error) {
 	return s, nil
 }
 
-func (s *httpServer) Serve() error {
+func (s *HttpServer) Serve() error {
 	err := s.server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("http listen and serve / %w", err)
@@ -77,7 +77,7 @@ func (s *httpServer) Serve() error {
 	return nil
 }
 
-func (s *httpServer) Stop(ctx context.Context) error {
+func (s *HttpServer) Stop(ctx context.Context) error {
 	defer s.conn.Close()
 	return s.server.Shutdown(ctx)
 }
