@@ -42,6 +42,8 @@ alwaysApply: false
     - An `ExtendedTransformer` created from your custom transformer (or `BaseTransformer` if no special logic is needed)
     - Lifecycle hooks are needed, consider implement `Start(context.Context) error` and `Stop(context.Context) error`
   5. Extend with Custom Methods – If business logic requires more than the provided generic methods, add them to the repository.
+  	- Unit tests are mandatory for these functions.
+	- Unit test functions must be placed in a test suite, look at generic repository packages for testing examples (`internal/repositories/**/generic_test.go`)
 
 # Example: Creating a MySQL User Repository
 
