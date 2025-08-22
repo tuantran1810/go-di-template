@@ -1,6 +1,6 @@
 ---
 description: this is the rules for implementing a SQL repository, taking advantage of the Generic Repository implementation.
-globs: internal/repositories/*.go,internal/repositories/**/*.go
+globs: internal/repositories/**
 alwaysApply: false
 ---
 
@@ -13,39 +13,40 @@ alwaysApply: false
 - Terminology: In our context, a repository represents a single SQL table.
 - In GORM, a table is mapped to a struct type.
 - The generic repository implementations are located at:
-  - MySQL: internal/repositories/mysql/generic.go
-  - Postgres: internal/repositories/postgres/generic.go
-  - SQLite: internal/repositories/sqlite/generic.go
+  - MySQL: `internal/repositories/mysql/generic.go`
+  - Postgres: `internal/repositories/postgres/generic.go`
+  - SQLite: `internal/repositories/sqlite/generic.go`
 
 - The generic repository provides following functions:
-  - Ping(): check if the database is connected and the table exists
-  - AutoMigrate(): run the migration, so that the underlying table matches the schema declared by the struct
-  - Create(): create a new record using INSERT INTO
-  - CreateMany(): create multiple records in the same table using INSERT INTO
-  - Get(): find a record using the field 'id', returns error if it cannot be found
-  - GetMany(): find multiple records by ids, returns no error if nothing found
-  - GetByCriterias(): find a record using multiple criterias, returns error if it cannot be found
-  - GetManyByCriterias(): find multiple records using multiple criterias, returns no error if nothing found
-  - Count(): count number of records matching a set of criterias
-  - Update(): update a record by id, returns error if it does not exist
-  - Delete(): delete a record by id
-  - DeleteMany(): delete multiple records with a list of ids
+  - `Ping()`: check if the database is connected and the table exists
+  - `AutoMigrate()`: run the migration, so that the underlying table matches the schema declared by the struct
+  - `RunTx()`: initialize a transaction
+  - `Create()`: create a new record using INSERT INTO
+  - `CreateMany()`: create multiple records in the same table using INSERT INTO
+  - `Get()`: find a record using the field 'id', returns error if it cannot be found
+  - `GetMany()`: find multiple records by ids, returns no error if nothing found
+  - `GetByCriterias()`: find a record using multiple criterias, returns error if it cannot be found
+  - `GetManyByCriterias()`: find multiple records using multiple criterias, returns no error if nothing found
+  - `Count()`: count number of records matching a set of criterias
+  - `Update()`: update a record by id, returns error if it does not exist
+  - `Delete()`: delete a record by id
+  - `DeleteMany()`: delete multiple records with a list of ids
 
 # Usage Rules
 - To take advantage of these generic repository implementations:
-  1. Declare an Entity Struct – Define the business entity in the internal/entities/ package.
-  2. Declare an Infrastructure Struct – Define the GORM model struct in internal/repositories/... that maps directly to the SQL table schema.
-  3. Implement a Transformer – Create a transformer struct that satisfies the DataTransformer[T, E] interface (internal/entities/transformer.go) to convert between infrastructure models and entity structs.
-  4. Create a Repository Constructor – Use NewGenericRepository() from the appropriate SQL driver package, passing:
-    - A physical repository connection (*Repository) from dependency injection
-    - An Extended Transformer created from your custom transformer (or BaseTransformer if no special logic is needed)
-    - Lifecycle hooks are needed, consider implement "Start(context.Context) error" and Stop(context.Context) error
+  1. Declare an Entity Struct – Define the business entity in the `internal/entities/` package.
+  2. Declare an Infrastructure Struct – Define the GORM model struct in `internal/repositories/...` that maps directly to the SQL table schema.
+  3. Implement a Transformer – Create a transformer struct that satisfies the `DataTransformer[T, E]` interface (`internal/entities/transformer.go`) to convert between infrastructure models and entity structs.
+  4. Create a Repository Constructor – Use `NewGenericRepository()` from the appropriate SQL driver package, passing:
+    - A physical repository connection (`*Repository`) from dependency injection
+    - An `ExtendedTransformer` created from your custom transformer (or `BaseTransformer` if no special logic is needed)
+    - Lifecycle hooks are needed, consider implement `Start(context.Context) error` and `Stop(context.Context) error`
   5. Extend with Custom Methods – If business logic requires more than the provided generic methods, add them to the repository.
 
 # Example: Creating a MySQL User Repository
 
 ### internal/entities/user.go
-```
+```go
 package entities
 
 import (
@@ -66,7 +67,7 @@ type User struct {
 ```
 
 ### internal/repositories/user.go
-```
+```go
 package repositories
 
 import (

@@ -19,7 +19,7 @@ alwaysApply: false
      ```
 2. **Create the main startup function**
   For example, if I want to start a server program, it should looks like:
-  ```
+  ```go
   func newServerApp() *fx.App {
     cfg := config.MustLoadConfig[config.ServerConfig]()
     log.Infof("Starting server with config: %+v", cfg)
@@ -50,12 +50,13 @@ alwaysApply: false
   - For each component (class in diagram, not invoked directly)
     - If a constructor exists: call it.
     - Else: init struct directly.
-  - Create a new{componentA}() function in the same file to initialize the component A. Remember to connect the OnStart() and OnStop() hook of the app lifecycle to the component if the start and stop function of the component is available.
-  - **Do not** call new{componentA}() more than once.
-  - The new{componentA}() function must return **the concrete types** instead of interfaces.
-  - The new{componentA}() function must receive **concrete type dependencies** instead of interfaces.
-  - The new{componentA}() function should looks like:
-  ```
+  - Create a `new{componentA}()` function in the same file to initialize the component A.
+  - Connect the `OnStart()` and `OnStop()` hook of the app lifecycle to the component if the start and stop function of the component is available.
+  - **Do not** call `new{componentA}()` more than once.
+  - The `new{componentA}()` function must return **the concrete types** instead of interfaces.
+  - The `new{componentA}()` function must receive **concrete type dependencies** instead of interfaces.
+  - The `new{componentA}()` function should looks like:
+  ```go
   func newComponentA(
     appLifecycle fx.Lifecycle,
     config a_package.ComponentAConfig,
@@ -70,24 +71,24 @@ alwaysApply: false
     return c
   }
   ```
-  - Provide the new{componentA}() to the fx:
-  ```
+  - Provide the `new{componentA}()` to the fx:
+  ```go
   fx.Provide(
     newComponentX,
     newComponentY,
     newComponentA,
-    ...
+    // ...
   ),
   ```
 5. **Invoke top-level components**
-  - Use fx.Invoke() for high-level services (e.g., servers, workers).
-  - We also need to create a new{componentA}() function with OnStart() and OnStop() hook, exactly the same as the example in step 4.
-  - Use fx.Invoke() to invoke the component:
-  ```
+  - Use `fx.Invoke()` for high-level services (e.g., servers, workers).
+  - We also need to create a `new{componentA}()` function with `OnStart()` and `OnStop()` hook, exactly the same as the example in step 4.
+  - Use `fx.Invoke()` to invoke the component:
+  ```go
   fx.Invoke(newComponentA)
   ```
-  - For invoking an inbound server, use the following template for the startInboundServer() function, which use the **/internal/inbound/server** package to initialize a server
-  ```
+  - For invoking an inbound server, use the following template for the `startInboundServer()` function, which use the **/libs/server** package to initialize a server
+  ```go
   func startInboundServer(
     appLifecycle fx.Lifecycle,
     cfg config.ServerConfig,
@@ -122,8 +123,8 @@ alwaysApply: false
     return server
   }
   ```
-6. In cmd/cmd.go, in init function, add a command for the new application in the init() function. For example, we have just created a new consumer, then:
-  ```
+6. In `cmd/cmd.go`, add a command for the new application in the `init()` function. For example, we have just created a new consumer, then:
+  ```go
   func init() {
     // ...
     startConsumerCmd := &cobra.Command{
@@ -140,7 +141,7 @@ alwaysApply: false
 7. **Verify dependency injection at runtime**
   - Compilation success ≠ DI success — Uber/fx resolves dependencies at **runtime**.
   - Start the generated application **normally** with the following script, **do not use anything else**
-    ```
+    ```sh
     go run main.go {your-new-command} &
     PID=$!
     sleep 5

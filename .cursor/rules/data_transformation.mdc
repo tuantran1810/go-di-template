@@ -11,7 +11,7 @@ alwaysApply: true
 # The basic transformer interface
 - The core interface is declared in internal/entities/transformer.go
 
-```
+```go
 type DataTransformer[T, E any] interface {
 	ToEntity(data *T) (entity *E, err error) // convert from a data type T to an entity type E
 	FromEntity(entity *E) (data *T, err error) // convert from an entity type E to a data type T
@@ -28,26 +28,26 @@ type DataTransformer[T, E any] interface {
 
 - Provided Utility Functions:
   - Entity to Data:
-    - FromEntity(): the basic one, from an entity to a data object
-    - FromEntityArray_I2I(): From Entity instance Array to Data instance Array
-    - FromEntityArray_I2P(): From Entity instance Array to Data pointer Array
-    - FromEntityArray_P2I(): From Entity pointer Array to Data instance Array
-    - FromEntityArray_P2P(): From Entity pointer Array to Data pointer Array
+    - `FromEntity()`: the basic one, from an entity to a data object
+    - `FromEntityArray_I2I()`: From Entity instance Array to Data instance Array
+    - `FromEntityArray_I2P()`: From Entity instance Array to Data pointer Array
+    - `FromEntityArray_P2I()`: From Entity pointer Array to Data instance Array
+    - `FromEntityArray_P2P()`: From Entity pointer Array to Data pointer Array
   - Data to Entity:
-    - ToEntity(): the basic one, from a data object to an entity
-    - ToEntityArray_I2I(): From Data instance Array to Entity instance Array
-    - ToEntityArray_I2P(): From Entity instance Array to Data pointer Array
-    - ToEntityArray_P2I(): From Data pointer Array to Entity instance Array
-    - ToEntityArray_P2P(): From Data pointer Array to Entity pointer Array
+    - `ToEntity()`: the basic one, from a data object to an entity
+    - `ToEntityArray_I2I()`: From Data instance Array to Entity instance Array
+    - `ToEntityArray_I2P()`: From Entity instance Array to Data pointer Array
+    - `ToEntityArray_P2I()`: From Data pointer Array to Entity instance Array
+    - `ToEntityArray_P2P()`: From Data pointer Array to Entity pointer Array
 
 - Creating an Extended Transformer:
   - Use:
-  ```
+  ```go
   extTransformer := NewExtendedDataTransformer(myTransformer)
   // myTransformer must satisfy DataTransformer[T, E]
   ```
   - Quick creation with the BaseTransformer:
-  ```
+  ```go
   extTransformer := NewBaseExtendedTransformer[T, E]()
   ```
 # Clean Architecture Usage Rules

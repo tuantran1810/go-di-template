@@ -1,13 +1,35 @@
 ---
 description:
-globs: internal/usecases/*.go
+globs: internal/usecases/*,internal/repositories
 alwaysApply: false
 ---
 
 # Overview
-- Clean Architecture aims to separate infrastructure from business logic, so it's hard to reflect database transactions to the business logic layer.
-- This project provides a mechanism to abstract away the transaction from the business logic.
-- In this approach the use case layer acknowledges about the database transaction, it starts, keeps and propagates the transaction around and then stop the transaction, either by commit or rollback.
+- Clean Architecture separates infra from business logic, making DB transaction handling non-trivial.
+- This project abstracts transactions so that:
+  - Use case layer **starts, propagates, and ends** transactions.
+  - Repository layer **executes queries using the passed transaction**.
+
+# Rules to adopt transactions in repository layer
+- The **entities.Transaction** represents the transaction, passing this object around helps to propagate the transaction to all related business logic.
+- Always accept `entities.Transaction` as a parameter in repository methods.
+- Use `entities.Transaction.GetTransaction()` to extract the real DB transaction.
 
 # Rules to adopt transactions in use case layer
-- Use the RunTx() function of the original repository
+- Use the most relevant repository as the transaction entrypoint.
+- Expose `RunTx()` from that repository to the use case layer with the signature:
+  ```go
+  RunTx(ctx context.Context, funcs ...entities.DBTxHandleFunc) error
+  ```
+  - **ctx**: must be context with timeout.
+  - **funcs**: ordered list of transaction functions
+  ```go
+  type DBTxHandleFunc func(ctx context.Context, dbtx entities.Transaction) error
+  ```
+    - Each function must propagate both ctx and dbtx to all downstream calls.
+
+- RunTx() behavior:
+  - Executes all functions in order.
+  - If any function returns error → transaction is rolled back.
+  - If all functions return nil → transaction is committed.
+  - Business logic inside the callbacks decides success/failure by returning error appropriately.

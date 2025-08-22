@@ -8,22 +8,22 @@ alwaysApply: true
 This project follows a strict Clean Architecture structure with four layers:
 
 ### Entity Layer
-  - Location: internal/entities/
+  - Location: **internal/entities/**
   - Contains all core business entities (structs) and basic operations on them.
   - No dependencies on other layers.
 
 ### Use Case Layer
-  - Location: internal/usecases/
+  - Location: **internal/usecases/**
   - Contains all application-specific business logic.
   - Orchestrates the flow of data between Entities and other layers.
   - Depends only on the Entity layer and abstracted interfaces.
 
 ### Infrastructure Layer
-  - Location: split into multiple subfolders:
-    - **internal/clients/** – Callable clients actively used by the service (active outbound connectors), such as HTTP clients, gRPC clients, Pub/Sub or message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
-    - **internal/inbound/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
-    - **internal/controllers/** – Server implementations for gRPC or HTTP APIs.
-    - **internal/repositories/** – Storage drivers and database query logic for interacting with databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
+Split into multiple subfolders:
+  - **internal/outbound/** – Callable clients actively used by the service (active outbound connectors), such as HTTP clients, gRPC clients, Pub/Sub or message queue producers (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+  - **internal/inbound/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
+  - **internal/controllers/** – Server implementations for gRPC or HTTP APIs.
+  - **internal/repositories/** – Storage drivers and database query logic for interacting with databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
 
 ### Interface Adapter Layer
   - No dedicated folder for this layer.
