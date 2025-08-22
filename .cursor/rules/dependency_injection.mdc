@@ -1,6 +1,6 @@
 ---
 description: Dependency injection setup using Uber/fx in Go
-globs: cmd/*.go
+globs: cmd/**
 alwaysApply: false
 ---
 # Overview

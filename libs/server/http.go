@@ -8,6 +8,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	grpc_health "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -28,7 +29,11 @@ func NewHTTPServer(conf *config) (*HttpServer, error) {
 		conf.http.addr = "localhost:8080"
 	}
 
-	conn, err := grpc.Dial(conf.grpc.addr, grpc.WithInsecure())
+	conn, err := grpc.NewClient(
+		conf.grpc.addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("dial grpc / %w", err)
 	}
@@ -41,9 +46,11 @@ func NewHTTPServer(conf *config) (*HttpServer, error) {
 	mux := runtime.NewServeMux(options...)
 
 	promHandler := promhttp.Handler()
-	mux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	if err := mux.HandlePath(http.MethodGet, "/metrics", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 		promHandler.ServeHTTP(w, r)
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("register prometheus handler / %w", err)
+	}
 
 	handler := http.Handler(mux)
 
@@ -78,6 +85,10 @@ func (s *HttpServer) Serve() error {
 }
 
 func (s *HttpServer) Stop(ctx context.Context) error {
-	defer s.conn.Close()
-	return s.server.Shutdown(ctx)
+	err := s.server.Shutdown(ctx)
+	if err != nil {
+		return fmt.Errorf("http shutdown / %w", err)
+	}
+
+	return s.conn.Close()
 }

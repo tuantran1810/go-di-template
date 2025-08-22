@@ -102,7 +102,7 @@ func getLogFunc(log Logger, code codes.Code) LogFunc {
 func detectAndInjectCorrelationID(ctx context.Context) (context.Context, string) {
 	correlationID := ""
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		correlationIDs, ok := md[utils.XCorrelationID]
+		correlationIDs, ok := md[string(utils.XCorrelationID)]
 		if ok && len(correlationIDs) > 0 {
 			correlationID = correlationIDs[0]
 		} else { // if cannot detect from header

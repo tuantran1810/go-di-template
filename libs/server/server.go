@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 )
 
 type Server struct {
@@ -56,7 +57,9 @@ func (g *Server) Start() error {
 
 func (g *Server) StartBackground(ctx context.Context) error {
 	go func() {
-		g.Start()
+		if err := g.Start(); err != nil {
+			log.Fatalf("failed to start server: %v", err)
+		}
 	}()
 
 	return nil

@@ -1,6 +1,6 @@
 ---
 description:
-globs: internal/usecases/*,internal/repositories
+globs: internal/usecases/**,internal/repositories/**
 alwaysApply: false
 ---
 
