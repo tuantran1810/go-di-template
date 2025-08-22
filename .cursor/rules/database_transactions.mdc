@@ -27,8 +27,33 @@ alwaysApply: false
   type DBTxHandleFunc func(ctx context.Context, dbtx entities.Transaction) error
   ```
     - Each function must propagate both ctx and dbtx to all downstream calls.
-- Use transactions only when multiple repository functions must run atomically.
-- **MUST NOT** use a transaction for a single repository operation — pass nil for `dbtx entities.Transaction`.
+- Use transactions only when multiple repository functions must run atomically. For example:
+```go
+	if err := u.userRepository.RunTx(
+		timeoutCtx,
+		func(ictx context.Context, dbtx entities.Transaction) error {
+			var ierr error
+      newUser, ierr = u.userRepository.Create(ictx, dbtx, user) // the first repository function
+			if ierr != nil {
+				return fmt.Errorf("failed to create user: %w", ierr)
+			}
+			outUser, ierr = u.attributeRepository.CreateMany(ictx, dbtx, atts) // the second repository function
+			if ierr != nil {
+				return fmt.Errorf("failed to create attributes: %w", ierr)
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+```
+- **MUST NOT** use a transaction for a single repository operation — pass nil for `dbtx entities.Transaction`. For example:
+```go
+  newItem, err = u.itemRepository.Create(ctx, nil, item) // the only repository function
+  if err != nil {
+    return fmt.Errorf("failed to create item: %w", err)
+  }
+```
 
 - RunTx() behavior:
   - Executes all functions in order.
