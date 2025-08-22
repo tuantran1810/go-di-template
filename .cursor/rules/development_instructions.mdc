@@ -63,9 +63,11 @@ packages:
     - Run unit tests with HTML coverage reports: `test-coverage-html`
 
 # Development rules
-The following rules must be followrf **strictly** in the development process
-- After completing a code change (a new function or a modification) write unit tests for it, run the test and fix bugs before starting a new one.
-- Run linter and unit tests after making code changes.
+The following rules must be followed **STRICTLY** in the development process:
+- After completing a code change (a new function or a modification):
+    - Write unit tests to cover the new code.
+    - Run the test and fix **ALL** bugs before starting a new implementation.
+    - Run linter and check for code smells.
 - If you modify an interface with a mock config, re-generate its mock.
 - If you modify `.proto` files, regenerate the corresponding Go code.
 - If any tools are missing, run `make install-dev-env`.
