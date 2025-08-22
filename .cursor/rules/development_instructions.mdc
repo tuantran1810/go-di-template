@@ -64,7 +64,7 @@ packages:
 
 # Development rules
 The following rules must be followrf **strictly** in the development process
-- After completing a code change (a new function or a modification), write unit tests for it before starting a new one.
+- After completing a code change (a new function or a modification) write unit tests for it, run the test and fix bugs before starting a new one.
 - Run linter and unit tests after making code changes.
 - If you modify an interface with a mock config, re-generate its mock.
 - If you modify `.proto` files, regenerate the corresponding Go code.
