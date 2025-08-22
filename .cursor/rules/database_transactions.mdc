@@ -14,8 +14,6 @@ alwaysApply: false
 - The **entities.Transaction** represents the transaction, passing this object around helps to propagate the transaction to all related business logic.
 - Always accept `entities.Transaction` as a parameter in repository methods.
 - Use `entities.Transaction.GetTransaction()` to extract the real DB transaction.
-- Use transactions only when multiple repository functions must run atomically.
-- Do not use a transaction for a single repository operation — pass nil for `dbtx entities.Transaction`.
 
 # Rules to adopt transactions in use case layer
 - Use the most relevant repository as the transaction entrypoint.
@@ -29,6 +27,8 @@ alwaysApply: false
   type DBTxHandleFunc func(ctx context.Context, dbtx entities.Transaction) error
   ```
     - Each function must propagate both ctx and dbtx to all downstream calls.
+- Use transactions only when multiple repository functions must run atomically.
+- **MUST NOT** use a transaction for a single repository operation — pass nil for `dbtx entities.Transaction`.
 
 - RunTx() behavior:
   - Executes all functions in order.
