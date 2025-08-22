@@ -1,5 +1,8 @@
-# Overview
-- This document provides guidances for your development process
+---
+description: This document provides guidances for your development process
+globs:
+alwaysApply: true
+---
 
 # Developemnt tools
 ### Mockery
@@ -60,6 +63,8 @@ packages:
     - Run unit tests with HTML coverage reports: `test-coverage-html`
 
 # Development rules
+The following rules must be followrf **strictly** in the development process
+- After completing a code change, write unit tests for it before starting a new one.
 - Run linter and unit tests after making code changes.
 - If you modify an interface with a mock config, re-generate its mock.
 - If you modify `.proto` files, regenerate the corresponding Go code.
