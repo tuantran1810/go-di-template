@@ -1,0 +1,176 @@
+---
+description: This document provides guidance for writting comprehensive unit tests
+globs: **/*_test.go
+alwaysApply: false
+---
+
+# Overview
+- This codebase follows a pure Clean Architecture, isolating components by abstracting dependencies behind interfaces.
+- This document provides guidance on writing unit tests, covering:
+  - Mocking interfaces
+  - Organizing test cases
+  - Organizing test suites
+  - Writing effective test cases
+
+# Rules to write unit tests
+## Mocking interfaces
+- Generate mocks with mockery.
+  - Config file: `.mockery.yml`
+  - Command: `make gen-mock`
+- Re-generate mocks whenever
+  - An interface is modified, or
+  - A new interface is introduced.
+- **Do not** hand-write mocks, always generate with mockery.
+- Prefer expect-return style for readability. Example:
+```go
+	mockPackage.EXPECT().
+		AFunction(mock.Anything, MyInput{...}).
+		Return(MyOutput{}, nil)
+```
+- For complex scenarios, use a function return with the same signature as the mocked method. Example:
+```go
+	mockPackage.EXPECT().
+		AFunction(mock.Anything, MyInput{...}).
+		Return(func(ctx context.Context, input MyInput) (MyOutput, error) {
+      // custom implementation for special cases
+    })
+```
+
+## Using Test Suites vs. Independent Test Functions
+- Use standalone test functions when the test does not share any resources with other tests.
+- Group tests into a test suite when they share at least one common resource (e.g., database, mock setup, or configuration).
+
+### Writing independent test cases
+- An independent test case is represented by a **single test function**.
+- Always use `t.Parallel()` since these tests do not share resources and can safely run in parallel.
+- A typical test function should follow this format:
+```go
+func TestSomething(t *testing.T) {
+  t.Parallel()
+
+  // Common variables for the test
+  now := time.Now()
+
+  // Setup mocks
+  aMockInterface := mocks.NewMockInterface(t)
+  aMockInterface.EXPECT().
+    AFunction(ADataType{/* ... */}).
+    Return(AResponseType{}, nil)
+
+  // Define table-driven test cases
+  tests := []struct {
+    name    string
+    input   *Input
+    want    *Output
+    wantErr bool
+  }{
+    // test cases here
+  }
+
+  for _, tt := range tests {
+    t.Run(tt.name, func(t *testing.T) {
+      t.Parallel()
+      // Execute function under test
+      // Use t.Error / t.Errorf for validation
+    })
+  }
+}
+
+```
+
+### Writing test suites
+- A test suite is a struct that groups test cases sharing common resources (e.g., DB, fake servers, containers).
+- Use `github.com/stretchr/testify/suite` to manage lifecycle hooks.
+- Do not use `t.Parallel()` inside suite test cases, since they share resources.
+- Example structure:
+```go
+import "github.com/stretchr/testify/suite"
+
+type ATestSuite struct {
+  suite.Suite
+  database   *Database
+  fakeServer *FakeServer
+}
+
+func (s *ATestSuite) SetupSuite() {
+  t := s.T()
+  t.Helper()
+  // Runs once before the entire suite
+  // Initialize shared dependencies (e.g., DB, containers, servers)
+}
+
+func (s *ATestSuite) TearDownSuite() {
+  t := s.T()
+  t.Helper()
+  // Runs once after the entire suite
+  // Clean up shared dependencies
+}
+
+func (s *ATestSuite) SetupTest() {
+  t := s.T()
+  t.Helper()
+  // Runs before each test case
+  // Prepare test-specific state (e.g., seed DB, setup fake server data)
+}
+
+func (s *ATestSuite) TearDownTest() {
+  t := s.T()
+  t.Helper()
+  // Runs after each test case
+  // Reset state (e.g., truncate DB, clear fake server data)
+}
+
+func (s *ATestSuite) TestCase1() {
+  t := s.T()
+
+  // Common variables for the test
+  now := time.Now()
+
+  // Setup resources specific to this test
+  err := s.database.Create(...)
+  s.Require().NoError(err)
+
+  // setup test records for the fake server
+  err := s.fakeServer.Create(...)
+  s.Require().NoError(err)
+
+  // Setup mocks
+  aMockInterface := mocks.NewMockInterface(t)
+  aMockInterface.EXPECT().
+    AFunction(ADataType{/* ... */}).
+    Return(AResponseType{}, nil)
+
+  // Define table-driven test cases
+  tests := []struct {
+    name    string
+    input   *Input
+    want    *Output
+    wantErr bool
+  }{
+    // test cases here
+  }
+
+  for _, tt := range tests {
+    t.Run(tt.name, func(t *testing.T) {
+      t.Parallel()
+      // Execute function under test
+      // Use t.Error / t.Errorf for validation
+    })
+  }
+}
+
+func TestATestSuite(t *testing.T) {
+	suite.Run(t, new(ATestSuite))
+}
+```
+
+## Writing effective test cases
+- Test cases MUST be defined before or alongside implementation (follow TDD principles where possible).
+- Test cases **MUST NOT** depend on the real implementation. This applies to both independent tests and test suites.
+- Each test function should, at a minimum, cover:
+  - **Happy path**: Valid input produces the expected result without error.
+  - **Corner cases** (as applicable), such as:
+    - Invalid or malformed inputs.
+    - Failures from external dependencies (e.g., DB, services, mocks).
+    - Failures in internal logic or unexpected edge conditions.
+- The implementation should then be written (or adjusted) to ensure it **passes all defined test cases**.

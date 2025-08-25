@@ -196,6 +196,7 @@ type GenericDataTestSuite struct {
 
 func (s *GenericDataTestSuite) SetupSuite() {
 	t := s.T()
+	t.Helper()
 	if err := os.Setenv("TZ", "UTC"); err != nil {
 		t.Errorf("failed to set time zone: %v", err)
 		return
@@ -204,11 +205,13 @@ func (s *GenericDataTestSuite) SetupSuite() {
 
 func (s *GenericDataTestSuite) TearDownSuite() {
 	t := s.T()
+	t.Helper()
 	cleanup(t, s.store)
 }
 
 func (s *GenericDataTestSuite) SetupTest() {
 	t := s.T()
+	t.Helper()
 	store, fkStore, err := setup(t)
 	s.Require().NoError(err)
 	s.store = store
@@ -232,6 +235,7 @@ func (s *GenericDataTestSuite) SetupTest() {
 
 func (s *GenericDataTestSuite) TearDownTest() {
 	t := s.T()
+	t.Helper()
 	if err := s.store.Stop(context.Background()); err != nil {
 		t.Errorf("failed to stop store: %v\n", err)
 		return

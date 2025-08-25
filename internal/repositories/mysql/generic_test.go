@@ -234,6 +234,7 @@ type GenericDataTestSuite struct {
 
 func (s *GenericDataTestSuite) SetupSuite() {
 	t := s.T()
+	t.Helper()
 	if err := os.Setenv("TZ", "UTC"); err != nil {
 		t.Errorf("failed to set time zone: %v", err)
 		return
@@ -278,6 +279,7 @@ func (s *GenericDataTestSuite) SetupSuite() {
 
 func (s *GenericDataTestSuite) TearDownSuite() {
 	t := s.T()
+	t.Helper()
 	cleanup(t, s.store)
 
 	if err := testcontainers.TerminateContainer(s.container); err != nil {
@@ -288,6 +290,7 @@ func (s *GenericDataTestSuite) TearDownSuite() {
 
 func (s *GenericDataTestSuite) SetupTest() {
 	t := s.T()
+	t.Helper()
 	s.Require().NoError(s.store.AutoMigrate(context.Background()))
 
 	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
@@ -321,6 +324,7 @@ func (s *GenericDataTestSuite) SetupTest() {
 
 func (s *GenericDataTestSuite) TearDownTest() {
 	t := s.T()
+	t.Helper()
 
 	if err := s.store.db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
 		t.Errorf("failed to cleanup data: %v\n", err)
