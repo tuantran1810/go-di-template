@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type CorrelationIDKey string
+type ContextKey string
 
-const XCorrelationID CorrelationIDKey = "x-correlation-id"
+const XCorrelationID ContextKey = "x-correlation-id"
 
 func GenerateCorrelationID() string {
 	u := uuid.New()

@@ -114,8 +114,8 @@ type RepositoryConfig struct {
 }
 
 type Repository struct {
-	mutex sync.RWMutex
-	db    *gorm.DB
+	sync.RWMutex
+	db *gorm.DB
 }
 
 func NewRepository(cfg RepositoryConfig) (*Repository, error) {

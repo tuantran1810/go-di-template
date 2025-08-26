@@ -25,8 +25,8 @@ func NewGenericRepository[T, E any](
 }
 
 func (s *GenericRepository[T, E]) Ping(ctx context.Context) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	var entity T
 	dbtx := s.GetTransaction(nil).WithContext(ctx)
@@ -39,8 +39,8 @@ func (s *GenericRepository[T, E]) Ping(ctx context.Context) error {
 
 func (s *GenericRepository[T, E]) AutoMigrate(ctx context.Context) error {
 	var entity T
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.db.WithContext(ctx).AutoMigrate(&entity)
 }
@@ -54,8 +54,8 @@ func (s *GenericRepository[T, E]) Create(
 		return nil, fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	data, err := s.transformer.FromEntity(entity)
 	if err != nil {
@@ -78,8 +78,8 @@ func (s *GenericRepository[T, E]) CreateMany(
 		return nil, fmt.Errorf("%w - input entities is empty", entities.ErrInvalid)
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	dataArray, err := s.transformer.FromEntityArray_I2I(entityArray)
 	if err != nil {
@@ -99,8 +99,8 @@ func (s *GenericRepository[T, E]) Get(
 	tx entities.Transaction,
 	id uint,
 ) (*E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	var data T
@@ -120,8 +120,8 @@ func (s *GenericRepository[T, E]) GetMany(
 		return nil, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	var dataArray []T
@@ -139,8 +139,8 @@ func (s *GenericRepository[T, E]) GetByCriterias(
 	criterias map[string]any,
 	orderBys []string,
 ) (*E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	var data T
 	dbtx := s.
@@ -172,8 +172,8 @@ func (s *GenericRepository[T, E]) GetManyByCriterias(
 	offset int,
 	limit int,
 ) ([]E, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
@@ -205,8 +205,8 @@ func (s *GenericRepository[T, E]) Count(
 	tx entities.Transaction,
 	criterias map[string]any,
 ) (int64, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
@@ -232,8 +232,8 @@ func (s *GenericRepository[T, E]) Update(
 		return fmt.Errorf("%w - input entity is nil", entities.ErrInvalid)
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	data, err := s.transformer.FromEntity(entity)
 	if err != nil {
@@ -258,8 +258,8 @@ func (s *GenericRepository[T, E]) Delete(
 	permanent bool,
 	id uint,
 ) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {
@@ -286,8 +286,8 @@ func (s *GenericRepository[T, E]) DeleteMany(
 		return 0, fmt.Errorf("%w - input ids is empty", entities.ErrInvalid)
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 	if permanent {
