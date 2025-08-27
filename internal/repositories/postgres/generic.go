@@ -129,7 +129,11 @@ func (s *GenericRepository[T, E]) GetByCriterias(
 		dbtx = dbtx.Select(fields)
 	}
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		if v == nil {
+			dbtx = dbtx.Where(k)
+		} else {
+			dbtx = dbtx.Where(k, v)
+		}
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
@@ -154,7 +158,11 @@ func (s *GenericRepository[T, E]) GetManyByCriterias(
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		if v == nil {
+			dbtx = dbtx.Where(k)
+		} else {
+			dbtx = dbtx.Where(k, v)
+		}
 	}
 	for _, order := range orderBys {
 		dbtx = dbtx.Order(order)
@@ -184,7 +192,11 @@ func (s *GenericRepository[T, E]) Count(
 	dbtx := s.GetTransaction(tx).WithContext(ctx)
 
 	for k, v := range criterias {
-		dbtx = dbtx.Where(fmt.Sprintf(`"%s" = ?`, k), v)
+		if v == nil {
+			dbtx = dbtx.Where(k)
+		} else {
+			dbtx = dbtx.Where(k, v)
+		}
 	}
 
 	var data T
