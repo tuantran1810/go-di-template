@@ -47,6 +47,10 @@ packages:
     - protoc-gen-grpc-gateway (v2)
     - protoc-gen-openapiv2 (v2)
 
+# Docker usage for development
+- `Dockerfile.dev`: the development environment, containerized into a Docker image.
+- `Dockerfile`: the runtime environment, serving for runtime deployments.
+
 # Development operations
 - The `Makefile` contains all essential commands.
 - gvm (https://github.com/moovweb/gvm) is recommended for switching between go environments
@@ -61,6 +65,8 @@ packages:
     - Run unit tests: `make test`
     - Run unit tests with coverage reports: `make test-coverage`
     - Run unit tests with HTML coverage reports: `test-coverage-html`
+    - Build a docker image for development: `make build-docker-dev-image`
+    - Run the docker development environment: `make run-docker-dev-env`
 
 # Development rules
 The following rules must be followed **STRICTLY** in the development process:
@@ -71,3 +77,6 @@ The following rules must be followed **STRICTLY** in the development process:
 - If you modify an interface with a mock config, re-generate its mock.
 - If you modify `.proto` files, regenerate the corresponding Go code.
 - If any tools are missing, run `make install-dev-env`.
+- Prioritize to execute dev tools inside the development docker image:
+    - Build the image if it does not exist
+    - Execute `make run-docker-dev-env` to spin up the dev environment.

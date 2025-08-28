@@ -10,7 +10,9 @@ gen-mock \
 test \
 test-coverage \
 test-coverage-html \
-install-dev-env
+install-dev-env \
+build-docker-dev-image \
+run-docker-dev-env
 
 clean:
 	go clean
@@ -54,3 +56,9 @@ install-dev-env:
 	GOPROXY=https://proxy.golang.org go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.25.1
 	GOPROXY=https://proxy.golang.org go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.25.1
 	GOPROXY=https://proxy.golang.org GO111MODULE=on go install github.com/bufbuild/buf/cmd/buf@v1.48.0
+
+build-docker-dev-image:
+	docker build -t go-di-template:dev -f Dockerfile.dev .
+
+run-docker-dev-env:
+	docker run --rm -it -v $(PWD):/app -w /app go-di-template:dev
