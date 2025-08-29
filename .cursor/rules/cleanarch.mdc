@@ -9,13 +9,16 @@ This project follows a strict Clean Architecture structure with four layers:
 
 ### Entity Layer
   - Location: **internal/entities/**
-  - Contains all core business entities (structs) and basic operations on them.
+  - Define core business entities (structs, enums, value objects).
+  - Contain fundamental business rules that are independent of any framework or external system.
+  - Provide only simple methods and validations closely tied to the entity.
   - No dependencies on other layers.
 
 ### Use Case Layer
   - Location: **internal/usecases/**
   - Contains all application-specific business logic.
-  - Orchestrates the flow of data between Entities and other layers.
+  - Coordinate the flow of data between Entities and the outer layers via interfaces.
+  - Define input/output ports (interfaces) that describe required operations from repositories, external systems, or presenters.
   - Depends only on the Entity layer and abstracted interfaces.
 
 ### Infrastructure Layer
@@ -24,13 +27,17 @@ Split into multiple subfolders:
   - **internal/inbound/** – Consumer clients (inbound connectors) triggered by incoming messages or events from external systems (Kafka, RabbitMQ, Google Pub/Sub, etc.).
   - **internal/controllers/** – Server implementations for gRPC or HTTP APIs.
   - **internal/repositories/** – Storage drivers and database query logic for interacting with databases or caches (MySQL, PostgreSQL, MongoDB, SQLite, Redis, etc.).
+- Provide low-level technical details
+- Must not import from any inner layer.
+- We generally don't write this layer (since these drivers and frameworks are imported to our code), but we need it to make the application functions.
 
 ### Interface Adapter Layer
-  - No dedicated folder for this layer.
-  - For simplicity, its responsibilities are embedded within the Infrastructure layer.
-  - In addition to interacting with external systems, Infrastructure code also performs transformations between Entity objects and external data formats.
+  - Location: this layer also spread across four subfolders of the infrastructure layer (inbound, outbound, controllers, repositories)
+  - Responsibilities:
+    - Convert between Entity objects and external data formats.
+    - Play with the infrastructure drivers/frameworks to interact with the outer world
 
-# Rules for Entity layer
+# Rules for the Entity layer
 ### Purpose:
   - Represents the core business logic of the project.
   - Must not depend on any other project package.
@@ -56,7 +63,7 @@ Split into multiple subfolders:
     - Map to Struct transformation: github.com/mitchellh/mapstructure
     - Data serialization: github.com/json-iterator/go
 
-# Rules for Use case layer
+# Rules for the Use case layer
 ### Purpose
 - Contains the core application-specific business logic.
 - Defines how the system features behave using Entity objects.
@@ -93,7 +100,7 @@ Split into multiple subfolders:
 - Importing infrastructure or framework packages directly into the Use Case layer.
 - Embedding infrastructure-specific code (e.g., SQL queries, HTTP clients, ORM logic).
 
-# Rules for Infrastructure & Interface Adapter Layer
+# Rules for the Infrastructure & Interface Adapter Layer
 This combined layer contains all code that interacts with external systems and adapts data between the Use Case layer and those systems. It implements interfaces defined in the Use Case layer, performs necessary data transformations, and contains all technical details such as frameworks, servers, and clients.
 
 ### Contents:

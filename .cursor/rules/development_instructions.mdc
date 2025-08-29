@@ -65,8 +65,6 @@ packages:
   - Run unit tests: `make test`
   - Run unit tests with coverage reports: `make test-coverage`
   - Run unit tests with HTML coverage reports: `test-coverage-html`
-  - Build a docker image for development: `make build-docker-dev-image`
-  - Run the docker development environment: `make run-docker-dev-env`
 
 # Development rules
 The following rules must be followed **STRICTLY** in the development process:
@@ -77,7 +75,3 @@ The following rules must be followed **STRICTLY** in the development process:
 - If you modify an interface with a mock config, re-generate its mock.
 - If you modify `.proto` files, regenerate the corresponding Go code.
 - If any tools are missing, run `make install-dev-env`.
-- Execute dev tools inside the development docker image:
-  - Build the image if it does not exist
-  - Execute `make run-docker-dev-env` to spin up the dev environment.
-  - All the `make` operations **MUST** be executed inside docker dev environment.

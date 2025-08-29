@@ -59,6 +59,3 @@ install-dev-env:
 
 build-docker-dev-image:
 	docker build -t go-di-template:dev -f Dockerfile.dev .
-
-run-docker-dev-env:
-	docker run --rm -it -v $(PWD):/app -w /app go-di-template:dev
